@@ -113,9 +113,13 @@ if (!mevcutKullanici) {
   const yeniEmail = "fatih_52_gursoy@hotmail.com";
   const mevcutEmail = db.prepare("SELECT email FROM kullanicilar WHERE id = ?").get(mevcutKullanici.id);
   if (mevcutEmail && mevcutEmail.email !== yeniEmail) {
-    const yeniHash = bcrypt.hashSync("adampro123", 10);
-    db.prepare("UPDATE kullanicilar SET email = ?, sifre = ? WHERE id = ?").run(yeniEmail, yeniHash, mevcutKullanici.id);
-    console.log("✅ Kullanıcı bilgileri güncellendi");
+    try {
+      const yeniHash = bcrypt.hashSync("adampro123", 10);
+      db.prepare("UPDATE kullanicilar SET email = ?, sifre = ? WHERE id = ?").run(yeniEmail, yeniHash, mevcutKullanici.id);
+      console.log("✅ Kullanıcı bilgileri güncellendi");
+    } catch (e) {
+      console.log("⚠️ Varsayılan kullanıcı e-postası zaten kullanımda. Güncelleme atlandı.");
+    }
   }
   // Mevcut kullanıcıya bağlanmamış verileri bağla
   db.prepare("UPDATE gelirler SET kullanici_id = ? WHERE kullanici_id IS NULL").run(mevcutKullanici.id);
