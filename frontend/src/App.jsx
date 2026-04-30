@@ -6,6 +6,7 @@ import Kartlar from "./pages/Kartlar";
 import Yatirimlar from "./pages/Yatirimlar";
 import Hedefler from "./pages/Hedefler";
 import EkstreYukle from "./pages/EkstreYukle";
+import KrediKartTakip from "./pages/KrediKartTakip";
 import AiSohbet from "./pages/AiSohbet";
 import Dagilim from "./pages/Dagilim";
 import Grafikler from "./pages/Grafikler";
@@ -19,6 +20,7 @@ const MENU_ITEMS = [
   { id: "gelirler", label: "Gelirler", icon: "💵" },
   { id: "harcamalar", label: "Harcamalar", icon: "💸" },
   { id: "kartlar", label: "Kartlar", icon: "💳" },
+  { id: "kart-takip", label: "Kredi Kart Takip", icon: "🧾" },
   { id: "yatirimlar", label: "Yatırımlar", icon: "📈" },
   { id: "hedefler", label: "Hedefler", icon: "🎯" },
   { id: "dagilim", label: "Para Dağılımı", icon: "💡" },
@@ -81,6 +83,7 @@ function App() {
       case "gelirler": return <Gelirler />;
       case "harcamalar": return <Harcamalar />;
       case "kartlar": return <Kartlar />;
+      case "kart-takip": return <KrediKartTakip />;
       case "yatirimlar": return <Yatirimlar />;
       case "hedefler": return <Hedefler />;
       case "ekstre": return <EkstreYukle />;

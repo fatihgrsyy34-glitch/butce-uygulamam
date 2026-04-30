@@ -74,6 +74,16 @@ db.exec(`
     yuzde REAL NOT NULL,
     kullanici_id INTEGER REFERENCES kullanicilar(id)
   );
+
+  CREATE TABLE IF NOT EXISTS ekstreler (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kart_id INTEGER REFERENCES kartlar(id) ON DELETE SET NULL,
+    donem_adi TEXT NOT NULL,
+    yukleme_tarihi TEXT DEFAULT (datetime('now')),
+    harcama_sayisi INTEGER DEFAULT 0,
+    toplam_tutar REAL DEFAULT 0,
+    kullanici_id INTEGER REFERENCES kullanicilar(id)
+  );
 `);
 
 // Mevcut tablolara kullanici_id kolonu ekle (yoksa)
@@ -92,6 +102,19 @@ kolonEkle("harcamalar");
 kolonEkle("yatirimlar");
 kolonEkle("hedefler");
 kolonEkle("kurallar");
+
+// harcamalar tablosuna ekstre_id ekle (yoksa)
+try {
+  db.prepare("ALTER TABLE harcamalar ADD COLUMN ekstre_id INTEGER REFERENCES ekstreler(id) ON DELETE SET NULL").run();
+} catch (e) {}
+
+// sadece_takip kolonlarını ekle (yoksa)
+try {
+  db.prepare("ALTER TABLE harcamalar ADD COLUMN sadece_takip INTEGER DEFAULT 0").run();
+} catch (e) {}
+try {
+  db.prepare("ALTER TABLE ekstreler ADD COLUMN sadece_takip INTEGER DEFAULT 0").run();
+} catch (e) {}
 
 // Mevcut verileri varsayılan kullanıcıya bağla
 const bcrypt = require("bcryptjs");

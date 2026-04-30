@@ -3,8 +3,13 @@ import { kartAPI } from "../services/api";
 import api from "../services/api";
 
 function EkstreYukle() {
+  const ayIsimler = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+  const bugun = new Date();
+  const guncelYil = bugun.getFullYear();
+
   const [kartlar, setKartlar] = useState([]);
   const [secilenKart, setSecilenKart] = useState("");
+  const [secilenAy, setSecilenAy] = useState(ayIsimler[bugun.getMonth()]);
   const [dosya, setDosya] = useState(null);
   const [yukleniyor, setYukleniyor] = useState(false);
   const [sonuc, setSonuc] = useState(null);
@@ -27,6 +32,7 @@ function EkstreYukle() {
 
     const formData = new FormData();
     formData.append("pdf", dosya);
+    formData.append("donem_adi", `${secilenAy} ${guncelYil}`);
     if (secilenKart) formData.append("kart_id", secilenKart);
 
     try {
@@ -36,7 +42,7 @@ function EkstreYukle() {
       });
       setSonuc(res.data);
     } catch (err) {
-      setHata(err.message || "Bir hata oluştu");
+      setHata(err.response?.data?.hata || err.message || "Bir hata oluştu");
     } finally {
       setYukleniyor(false);
     }
@@ -68,19 +74,34 @@ function EkstreYukle() {
 
       <div className="card mt-lg" style={{ background: "var(--bg-secondary)", borderColor: "rgba(6, 182, 212, 0.3)" }}>
         <div className="flex flex-col gap-lg">
-          <div>
-            <label className="form-label" style={{ color: "var(--text-primary)" }}>Kart Seçin (Opsiyonel, borç eşleştirme için)</label>
-            <select
-              value={secilenKart}
-              onChange={(e) => setSecilenKart(e.target.value)}
-              className="input"
-              style={{ maxWidth: "300px", border: "1px solid rgba(6, 182, 212, 0.3)", background: "var(--bg-tertiary)" }}
-            >
-              <option value="">Kart seçin</option>
-              {kartlar.map((k) => (
-                <option key={k.id} value={k.id}>{k.isim}</option>
-              ))}
-            </select>
+          <div className="flex gap-md" style={{ flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: "200px" }}>
+              <label className="form-label" style={{ color: "var(--text-primary)" }}>Ekstre Dönemi</label>
+              <select
+                value={secilenAy}
+                onChange={(e) => setSecilenAy(e.target.value)}
+                className="input"
+                style={{ border: "1px solid rgba(6, 182, 212, 0.3)", background: "var(--bg-tertiary)" }}
+              >
+                {ayIsimler.map((ay) => (
+                  <option key={ay} value={ay}>{ay} {guncelYil}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: "200px" }}>
+              <label className="form-label" style={{ color: "var(--text-primary)" }}>Kart Seçin (Opsiyonel)</label>
+              <select
+                value={secilenKart}
+                onChange={(e) => setSecilenKart(e.target.value)}
+                className="input"
+                style={{ border: "1px solid rgba(6, 182, 212, 0.3)", background: "var(--bg-tertiary)" }}
+              >
+                <option value="">Kart seçin</option>
+                {kartlar.map((k) => (
+                  <option key={k.id} value={k.id}>{k.isim}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div

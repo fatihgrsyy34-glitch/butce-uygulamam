@@ -87,7 +87,7 @@ app.delete("/api/gelirler/:id", authMiddleware, (req, res) => {
 // ==================== HARCAMALAR ====================
 app.get("/api/harcamalar", authMiddleware, (req, res) => {
   try {
-    res.json(db.prepare("SELECT * FROM harcamalar WHERE kullanici_id = ? ORDER BY tarih DESC").all(req.kullanici.id));
+    res.json(db.prepare("SELECT * FROM harcamalar WHERE kullanici_id = ? AND (sadece_takip IS NULL OR sadece_takip = 0) ORDER BY tarih DESC").all(req.kullanici.id));
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
@@ -264,22 +264,69 @@ app.post("/api/ekstre-yukle", authMiddleware, upload.single("pdf"), async (req, 
 Kategori seçenekleri: Market, Yemek & Restoran, Ulaşım, Giyim, Sağlık, Eğlence, Faturalar, Eğitim, Diğer
 Sadece JSON döndür, başka hiçbir şey yazma.`;
     const result = await model.generateContent([{ inlineData: { mimeType: "application/pdf", data: base64Pdf } }, prompt]);
-    const temizJson = result.response.text().replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const analizSonucu = JSON.parse(temizJson);
+    const responseText = result.response.text();
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("AI yanıtından JSON çıkarılamadı");
+    const analizSonucu = JSON.parse(jsonMatch[0]);
     const kartId = req.body.kart_id ? parseInt(req.body.kart_id) : null;
-    if (analizSonucu.harcamalar?.length > 0) {
+    const donemAdi = req.body.donem_adi || "Bilinmiyor";
+    const sadeceTakip = req.body.sadece_takip === "1" ? 1 : 0;
+    const harcamalar = analizSonucu.harcamalar || [];
+    const toplamTutar = harcamalar.reduce((sum, h) => sum + (h.miktar || 0), 0);
+
+    let ekstreId = null;
+    if (harcamalar.length > 0) {
       db.transaction(() => {
-        for (const h of analizSonucu.harcamalar) {
-          db.prepare("INSERT INTO harcamalar (tarih, miktar, kategori, kart_id, aciklama, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)").run(h.tarih, h.miktar, h.kategori, kartId, h.aciklama, req.kullanici.id);
+        const ekstreResult = db.prepare(
+          "INSERT INTO ekstreler (kart_id, donem_adi, harcama_sayisi, toplam_tutar, sadece_takip, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)"
+        ).run(kartId, donemAdi, harcamalar.length, toplamTutar, sadeceTakip, req.kullanici.id);
+        ekstreId = ekstreResult.lastInsertRowid;
+        for (const h of harcamalar) {
+          db.prepare(
+            "INSERT INTO harcamalar (tarih, miktar, kategori, kart_id, aciklama, ekstre_id, sadece_takip, kullanici_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+          ).run(h.tarih, h.miktar, h.kategori, kartId, h.aciklama, ekstreId, sadeceTakip, req.kullanici.id);
         }
       })();
     }
+
     fs.unlinkSync(pdfPath);
-    res.json({ mesaj: `${analizSonucu.harcamalar?.length || 0} harcama içe aktarıldı`, harcamalar: analizSonucu.harcamalar });
+    res.json({ mesaj: `${harcamalar.length} harcama içe aktarıldı`, harcamalar, ekstre_id: ekstreId });
   } catch (err) {
     if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
     res.status(500).json({ hata: "PDF analizi başarısız: " + err.message });
   }
+});
+
+app.get("/api/ekstreler", authMiddleware, (req, res) => {
+  try {
+    const ekstreler = db.prepare(`
+      SELECT e.*, k.isim as kart_isim, k.renk as kart_renk, k.banka as kart_banka
+      FROM ekstreler e
+      LEFT JOIN kartlar k ON e.kart_id = k.id
+      WHERE e.kullanici_id = ?
+      ORDER BY e.yukleme_tarihi DESC
+    `).all(req.kullanici.id);
+    res.json(ekstreler);
+  } catch (err) { res.status(500).json({ hata: err.message }); }
+});
+
+app.get("/api/ekstreler/:id/harcamalar", authMiddleware, (req, res) => {
+  try {
+    const harcamalar = db.prepare(
+      "SELECT * FROM harcamalar WHERE ekstre_id = ? AND kullanici_id = ? ORDER BY tarih ASC"
+    ).all(req.params.id, req.kullanici.id);
+    res.json(harcamalar);
+  } catch (err) { res.status(500).json({ hata: err.message }); }
+});
+
+app.delete("/api/ekstreler/:id", authMiddleware, (req, res) => {
+  try {
+    db.transaction(() => {
+      db.prepare("DELETE FROM harcamalar WHERE ekstre_id = ? AND kullanici_id = ?").run(req.params.id, req.kullanici.id);
+      db.prepare("DELETE FROM ekstreler WHERE id = ? AND kullanici_id = ?").run(req.params.id, req.kullanici.id);
+    })();
+    res.json({ basarili: true });
+  } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 // ==================== AI SOHBET ====================

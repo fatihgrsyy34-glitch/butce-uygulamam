@@ -77,6 +77,12 @@ export const dagilimAPI = {
   hesapla: (gelir, profilAdi) => api.post("/dagilim-hesapla", { gelir, profilAdi }),
 };
 
+export const ekstreAPI = {
+  getirAll: () => api.get("/ekstreler"),
+  harcamalariGetir: (id) => api.get(`/ekstreler/${id}/harcamalar`),
+  sil: (id) => api.delete(`/ekstreler/${id}`),
+};
+
 export const kuralAPI = {
   getirAll: () => api.get("/kurallar"),
   guncelle: (kurallar) => api.put("/kurallar", { kurallar }),

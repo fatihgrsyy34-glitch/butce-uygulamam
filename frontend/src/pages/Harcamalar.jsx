@@ -7,6 +7,7 @@ function Harcamalar() {
   const [filtrelenmis, setFiltrelenmis] = useState([]);
   const [kartlar, setKartlar] = useState([]);
   const [secilenAy, setSecilenAy] = useState(new Date().toISOString().slice(0, 7));
+  const [secilenKart, setSecilenKart] = useState("");
   const [form, setForm] = useState({
     tarih: "",
     miktar: "",
@@ -21,9 +22,14 @@ function Harcamalar() {
   }, []);
 
   useEffect(() => {
-    const filtered = harcamalar.filter(h => h.tarih.startsWith(secilenAy));
+    let filtered = harcamalar.filter(h => h.tarih.startsWith(secilenAy));
+    if (secilenKart === "nakit") {
+      filtered = filtered.filter(h => !h.kart_id);
+    } else if (secilenKart) {
+      filtered = filtered.filter(h => h.kart_id === parseInt(secilenKart));
+    }
     setFiltrelenmis(filtered);
-  }, [harcamalar, secilenAy]);
+  }, [harcamalar, secilenAy, secilenKart]);
 
   const handleSubmit = () => {
     if (!form.tarih || !form.miktar || !form.kategori) {
@@ -53,13 +59,27 @@ function Harcamalar() {
           <h2 className="page-title text-red">Harcamalar</h2>
           <p className="page-subtitle">Aylık giderlerinizi yönetin ve sınıflandırın</p>
         </div>
-        <input
-          type="month"
-          value={secilenAy}
-          onChange={(e) => setSecilenAy(e.target.value)}
-          className="input"
-          style={{ width: "auto", background: "var(--red-soft)", borderColor: "rgba(239, 68, 68, 0.3)", color: "var(--red)", fontWeight: 600 }}
-        />
+        <div className="flex gap-sm">
+          <select
+            value={secilenKart}
+            onChange={(e) => setSecilenKart(e.target.value)}
+            className="input"
+            style={{ width: "auto", background: "var(--bg-secondary)", borderColor: "rgba(239, 68, 68, 0.3)", color: "var(--text-primary)", fontWeight: 600 }}
+          >
+            <option value="">💳 Tüm Kartlar</option>
+            <option value="nakit">💵 Nakit / Hesaptan</option>
+            {kartlar.map((k) => (
+              <option key={k.id} value={k.id}>{k.isim}</option>
+            ))}
+          </select>
+          <input
+            type="month"
+            value={secilenAy}
+            onChange={(e) => setSecilenAy(e.target.value)}
+            className="input"
+            style={{ width: "auto", background: "var(--red-soft)", borderColor: "rgba(239, 68, 68, 0.3)", color: "var(--red)", fontWeight: 600 }}
+          />
+        </div>
       </div>
 
       <div className="stat-grid mb-lg">
