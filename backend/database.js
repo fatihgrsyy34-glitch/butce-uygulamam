@@ -116,6 +116,11 @@ try {
   db.prepare("ALTER TABLE ekstreler ADD COLUMN sadece_takip INTEGER DEFAULT 0").run();
 } catch (e) {}
 
+// ekstreler tablosuna donem_yilAy ekle (yoksa) — örn. "2026-04"
+try {
+  db.prepare("ALTER TABLE ekstreler ADD COLUMN donem_yilAy TEXT").run();
+} catch (e) {}
+
 // Mevcut verileri varsayılan kullanıcıya bağla
 const bcrypt = require("bcryptjs");
 

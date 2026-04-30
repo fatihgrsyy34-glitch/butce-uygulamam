@@ -32,8 +32,9 @@ function Dashboard() {
   if (!veri) return <div className="empty-state">Veri alınamadı.</div>;
 
   const gecenAyBorcu = gecenAyVeri?.toplam_harcama || 0;
+  const krediKartiBorcu = veri.kredi_karti_borcu || 0;
   const toplamYatirim = veri.toplam_yatirim || 0;
-  const kalan = veri.toplam_gelir - gecenAyBorcu - toplamYatirim;
+  const kalan = veri.toplam_gelir - (krediKartiBorcu > 0 ? krediKartiBorcu : gecenAyBorcu) - toplamYatirim;
 
   const saglikStatus = veri.saglik_skoru >= 70 ? "green" : veri.saglik_skoru >= 40 ? "yellow" : "red";
 
@@ -68,9 +69,11 @@ function Dashboard() {
         </div>
 
         <div className="stat-card red" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid var(--red)" }}>
-          <div className="stat-label flex items-center gap-sm">💸 Geçen Ay Borcu</div>
-          <div className="stat-value red">₺{gecenAyBorcu.toLocaleString("tr-TR")}</div>
-          <div className="stat-sub">Önceki ayın harcamaları</div>
+          <div className="stat-label flex items-center gap-sm">💳 Kart Borcu (Ödenecek)</div>
+          <div className="stat-value red">₺{(krediKartiBorcu > 0 ? krediKartiBorcu : gecenAyBorcu).toLocaleString("tr-TR")}</div>
+          <div className="stat-sub">
+            {krediKartiBorcu > 0 ? "Geçen ay ekstre toplamı" : "Geçen ayın harcamaları (ekstre yok)"}
+          </div>
         </div>
 
         <div className="stat-card purple" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid var(--accent-primary)" }}>

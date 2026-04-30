@@ -12,6 +12,12 @@ const upload = multer({ dest: "uploads/" });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const JWT_SECRET = process.env.JWT_SECRET || "butce-app-secret-key";
 
+const AY_MAP = { "Ocak":"01","Şubat":"02","Mart":"03","Nisan":"04","Mayıs":"05","Haziran":"06","Temmuz":"07","Ağustos":"08","Eylül":"09","Ekim":"10","Kasım":"11","Aralık":"12" };
+const donemToYilAy = (donemAdi) => {
+  const [ay, yil] = (donemAdi || "").split(" ");
+  return AY_MAP[ay] && yil ? `${yil}-${AY_MAP[ay]}` : null;
+};
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -211,9 +217,15 @@ app.get("/api/dashboard", authMiddleware, (req, res) => {
     const ay = req.query.ay || new Date().toISOString().slice(0, 7);
     const uid = req.kullanici.id;
     const gelir = db.prepare("SELECT COALESCE(SUM(miktar), 0) as toplam FROM gelirler WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?").get(uid, ay);
-    const harcama = db.prepare("SELECT COALESCE(SUM(miktar), 0) as toplam FROM harcamalar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?").get(uid, ay);
-    const kategoriler = db.prepare("SELECT kategori, SUM(miktar) as toplam FROM harcamalar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ? GROUP BY kategori ORDER BY toplam DESC").all(uid, ay);
+    const harcama = db.prepare("SELECT COALESCE(SUM(miktar), 0) as toplam FROM harcamalar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ? AND (sadece_takip IS NULL OR sadece_takip = 0)").get(uid, ay);
+    const kategoriler = db.prepare("SELECT kategori, SUM(miktar) as toplam FROM harcamalar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ? AND (sadece_takip IS NULL OR sadece_takip = 0) GROUP BY kategori ORDER BY toplam DESC").all(uid, ay);
     const yatirim = db.prepare("SELECT COALESCE(SUM(miktar * alis_fiyati), 0) as toplam FROM yatirimlar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?").get(uid, ay);
+
+    const gecenAyDate = new Date(ay + "-01");
+    gecenAyDate.setMonth(gecenAyDate.getMonth() - 1);
+    const gecenAyStr = gecenAyDate.toISOString().slice(0, 7);
+    const krediKartiBorcu = db.prepare("SELECT COALESCE(SUM(toplam_tutar), 0) as toplam FROM ekstreler WHERE kullanici_id = ? AND donem_yilAy = ? AND (sadece_takip IS NULL OR sadece_takip = 0)").get(uid, gecenAyStr);
+
     const toplam_gelir = gelir.toplam;
     const toplam_harcama = harcama.toplam;
     const kalan = toplam_gelir - toplam_harcama;
@@ -225,7 +237,7 @@ app.get("/api/dashboard", authMiddleware, (req, res) => {
       else if (oran > 0.5) saglik_skoru = 70;
       else saglik_skoru = 90;
     }
-    res.json({ toplam_gelir, toplam_harcama, kalan, saglik_skoru, kategoriler, ay, toplam_yatirim: yatirim.toplam });
+    res.json({ toplam_gelir, toplam_harcama, kalan, saglik_skoru, kategoriler, ay, toplam_yatirim: yatirim.toplam, kredi_karti_borcu: krediKartiBorcu.toplam, gecen_ay: gecenAyStr });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
@@ -270,6 +282,7 @@ Sadece JSON döndür, başka hiçbir şey yazma.`;
     const analizSonucu = JSON.parse(jsonMatch[0]);
     const kartId = req.body.kart_id ? parseInt(req.body.kart_id) : null;
     const donemAdi = req.body.donem_adi || "Bilinmiyor";
+    const donemYilAy = donemToYilAy(donemAdi);
     const sadeceTakip = req.body.sadece_takip === "1" ? 1 : 0;
     const harcamalar = analizSonucu.harcamalar || [];
     const toplamTutar = harcamalar.reduce((sum, h) => sum + (h.miktar || 0), 0);
@@ -278,8 +291,8 @@ Sadece JSON döndür, başka hiçbir şey yazma.`;
     if (harcamalar.length > 0) {
       db.transaction(() => {
         const ekstreResult = db.prepare(
-          "INSERT INTO ekstreler (kart_id, donem_adi, harcama_sayisi, toplam_tutar, sadece_takip, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)"
-        ).run(kartId, donemAdi, harcamalar.length, toplamTutar, sadeceTakip, req.kullanici.id);
+          "INSERT INTO ekstreler (kart_id, donem_adi, donem_yilAy, harcama_sayisi, toplam_tutar, sadece_takip, kullanici_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        ).run(kartId, donemAdi, donemYilAy, harcamalar.length, toplamTutar, sadeceTakip, req.kullanici.id);
         ekstreId = ekstreResult.lastInsertRowid;
         for (const h of harcamalar) {
           db.prepare(
