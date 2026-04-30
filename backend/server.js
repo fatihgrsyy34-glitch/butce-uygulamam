@@ -93,7 +93,7 @@ app.delete("/api/gelirler/:id", authMiddleware, (req, res) => {
 // ==================== HARCAMALAR ====================
 app.get("/api/harcamalar", authMiddleware, (req, res) => {
   try {
-    res.json(db.prepare("SELECT * FROM harcamalar WHERE kullanici_id = ? AND (sadece_takip IS NULL OR sadece_takip = 0) ORDER BY tarih DESC").all(req.kullanici.id));
+    res.json(db.prepare("SELECT * FROM harcamalar WHERE kullanici_id = ? ORDER BY tarih DESC").all(req.kullanici.id));
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
@@ -224,7 +224,7 @@ app.get("/api/dashboard", authMiddleware, (req, res) => {
     const gecenAyDate = new Date(ay + "-01");
     gecenAyDate.setMonth(gecenAyDate.getMonth() - 1);
     const gecenAyStr = gecenAyDate.toISOString().slice(0, 7);
-    const krediKartiBorcu = db.prepare("SELECT COALESCE(SUM(toplam_tutar), 0) as toplam FROM ekstreler WHERE kullanici_id = ? AND donem_yilAy = ? AND (sadece_takip IS NULL OR sadece_takip = 0)").get(uid, gecenAyStr);
+    const krediKartiBorcu = db.prepare("SELECT COALESCE(SUM(toplam_tutar), 0) as toplam FROM ekstreler WHERE kullanici_id = ? AND donem_yilAy = ?").get(uid, gecenAyStr);
 
     const toplam_gelir = gelir.toplam;
     const toplam_harcama = harcama.toplam;
@@ -283,7 +283,7 @@ Sadece JSON döndür, başka hiçbir şey yazma.`;
     const kartId = req.body.kart_id ? parseInt(req.body.kart_id) : null;
     const donemAdi = req.body.donem_adi || "Bilinmiyor";
     const donemYilAy = donemToYilAy(donemAdi);
-    const sadeceTakip = req.body.sadece_takip === "1" ? 1 : 0;
+    const sadeceTakip = 1;
     const harcamalar = analizSonucu.harcamalar || [];
     const toplamTutar = harcamalar.reduce((sum, h) => sum + (h.miktar || 0), 0);
 
