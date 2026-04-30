@@ -5,22 +5,13 @@ import { getCategoryData } from "../utils/categories";
 
 function Dashboard() {
   const [veri, setVeri] = useState(null);
-  const [gecenAyVeri, setGecenAyVeri] = useState(null);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [secilenAy, setSecilenAy] = useState(new Date().toISOString().slice(0, 7));
 
   useEffect(() => {
     setYukleniyor(true);
-    const gecenAy = new Date(secilenAy + "-01");
-    gecenAy.setMonth(gecenAy.getMonth() - 1);
-    const gecenAyStr = gecenAy.toISOString().slice(0, 7);
-
-    Promise.all([
-      dashboardAPI.getir(secilenAy),
-      dashboardAPI.getir(gecenAyStr)
-    ]).then(([res, gecenRes]) => {
+    dashboardAPI.getir(secilenAy).then((res) => {
       setVeri(res.data);
-      setGecenAyVeri(gecenRes.data);
       setYukleniyor(false);
     }).catch((err) => {
       console.error(err);
@@ -31,15 +22,13 @@ function Dashboard() {
   if (yukleniyor) return <div className="empty-state">⏳ Yükleniyor...</div>;
   if (!veri) return <div className="empty-state">Veri alınamadı.</div>;
 
-  const gecenAyBorcu = gecenAyVeri?.toplam_harcama || 0;
-  const krediKartiBorcu = veri.kredi_karti_borcu || 0;
+  const kartBorcu = veri.kredi_karti_borcu || 0;
   const toplamYatirim = veri.toplam_yatirim || 0;
-  const kalan = veri.toplam_gelir - (krediKartiBorcu > 0 ? krediKartiBorcu : gecenAyBorcu) - toplamYatirim;
+  const kalan = veri.kalan;
 
   const saglikStatus = veri.saglik_skoru >= 70 ? "green" : veri.saglik_skoru >= 40 ? "yellow" : "red";
 
-  // Renkli liste için kategorileri hazırla
-  const kategoriler = gecenAyVeri?.kategoriler || [];
+  const kategoriler = veri.kategoriler || [];
   const chartData = kategoriler.map(k => {
     const catData = getCategoryData(k.kategori);
     return { name: k.kategori, value: k.toplam, fill: catData.color };
@@ -70,10 +59,8 @@ function Dashboard() {
 
         <div className="stat-card red" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid var(--red)" }}>
           <div className="stat-label flex items-center gap-sm">💳 Kart Borcu (Ödenecek)</div>
-          <div className="stat-value red">₺{(krediKartiBorcu > 0 ? krediKartiBorcu : gecenAyBorcu).toLocaleString("tr-TR")}</div>
-          <div className="stat-sub">
-            {krediKartiBorcu > 0 ? "Geçen ay ekstre toplamı" : "Geçen ayın harcamaları (ekstre yok)"}
-          </div>
+          <div className="stat-value red">₺{kartBorcu.toLocaleString("tr-TR")}</div>
+          <div className="stat-sub">{veri.gecen_ay} dönemi ekstre toplamı</div>
         </div>
 
         <div className="stat-card purple" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid var(--accent-primary)" }}>
@@ -109,7 +96,7 @@ function Dashboard() {
             <div className="flex flex-col gap-sm">
               {kategoriler.map((k) => {
                 const catData = getCategoryData(k.kategori);
-                const yuzdelik = Math.min(((k.toplam / gecenAyBorcu) * 100), 100).toFixed(0);
+                const yuzdelik = kartBorcu > 0 ? Math.min(((k.toplam / kartBorcu) * 100), 100).toFixed(0) : 0;
                 
                 return (
                   <div key={k.kategori} className="flex items-center gap-md" style={{ padding: "10px", background: "var(--bg-tertiary)", borderRadius: "10px", border: "1px solid var(--bg-card-border)" }}>

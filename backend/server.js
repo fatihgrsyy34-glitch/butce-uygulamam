@@ -216,19 +216,34 @@ app.get("/api/dashboard", authMiddleware, (req, res) => {
   try {
     const ay = req.query.ay || new Date().toISOString().slice(0, 7);
     const uid = req.kullanici.id;
-    const gelir = db.prepare("SELECT COALESCE(SUM(miktar), 0) as toplam FROM gelirler WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?").get(uid, ay);
-    const harcama = db.prepare("SELECT COALESCE(SUM(miktar), 0) as toplam FROM harcamalar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ? AND (sadece_takip IS NULL OR sadece_takip = 0)").get(uid, ay);
-    const kategoriler = db.prepare("SELECT kategori, SUM(miktar) as toplam FROM harcamalar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ? AND (sadece_takip IS NULL OR sadece_takip = 0) GROUP BY kategori ORDER BY toplam DESC").all(uid, ay);
-    const yatirim = db.prepare("SELECT COALESCE(SUM(miktar * alis_fiyati), 0) as toplam FROM yatirimlar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?").get(uid, ay);
 
     const gecenAyDate = new Date(ay + "-01");
     gecenAyDate.setMonth(gecenAyDate.getMonth() - 1);
     const gecenAyStr = gecenAyDate.toISOString().slice(0, 7);
+
+    const gelir = db.prepare("SELECT COALESCE(SUM(miktar), 0) as toplam FROM gelirler WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?").get(uid, ay);
+    const yatirim = db.prepare("SELECT COALESCE(SUM(miktar * alis_fiyati), 0) as toplam FROM yatirimlar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?").get(uid, ay);
+
+    // Kart borcu: geçen ayın ekstre toplamı
     const krediKartiBorcu = db.prepare("SELECT COALESCE(SUM(toplam_tutar), 0) as toplam FROM ekstreler WHERE kullanici_id = ? AND donem_yilAy = ?").get(uid, gecenAyStr);
 
+    // Kategoriler: geçen ayın ekstrelerinden — ekstre yoksa tarih bazlı fallback
+    let kategoriler = db.prepare(`
+      SELECT h.kategori, SUM(h.miktar) as toplam
+      FROM harcamalar h
+      JOIN ekstreler e ON h.ekstre_id = e.id
+      WHERE h.kullanici_id = ? AND e.donem_yilAy = ?
+      GROUP BY h.kategori ORDER BY toplam DESC
+    `).all(uid, gecenAyStr);
+
+    if (kategoriler.length === 0) {
+      kategoriler = db.prepare("SELECT kategori, SUM(miktar) as toplam FROM harcamalar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ? GROUP BY kategori ORDER BY toplam DESC").all(uid, gecenAyStr);
+    }
+
     const toplam_gelir = gelir.toplam;
-    const toplam_harcama = harcama.toplam;
-    const kalan = toplam_gelir - toplam_harcama;
+    const toplam_harcama = krediKartiBorcu.toplam;
+    const kalan = toplam_gelir - toplam_harcama - yatirim.toplam;
+
     let saglik_skoru = 100;
     if (toplam_gelir > 0) {
       const oran = toplam_harcama / toplam_gelir;
