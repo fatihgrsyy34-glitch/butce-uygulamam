@@ -25,6 +25,9 @@ function Dashboard() {
   const kartBorcu = veri.kredi_karti_borcu || 0;
   const toplamYatirim = veri.toplam_yatirim || 0;
   const kalan = veri.kalan;
+  const gelir = veri.toplam_gelir || 0;
+
+  const yuzde = (miktar) => gelir > 0 ? ((Math.abs(miktar) / gelir) * 100).toFixed(1) : null;
 
   const saglikStatus = veri.saglik_skoru >= 70 ? "green" : veri.saglik_skoru >= 40 ? "yellow" : "red";
 
@@ -60,13 +63,17 @@ function Dashboard() {
         <div className="stat-card red" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid var(--red)" }}>
           <div className="stat-label flex items-center gap-sm">💳 Kart Borcu (Ödenecek)</div>
           <div className="stat-value red">₺{kartBorcu.toLocaleString("tr-TR")}</div>
-          <div className="stat-sub">{veri.gecen_ay} dönemi ekstre toplamı</div>
+          <div className="stat-sub">
+            {yuzde(kartBorcu) ? `Gelirin %${yuzde(kartBorcu)}'i · ` : ""}{veri.gecen_ay} dönemi
+          </div>
         </div>
 
         <div className="stat-card purple" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid var(--accent-primary)" }}>
           <div className="stat-label flex items-center gap-sm">📈 Bu Ay Yatırım</div>
           <div className="stat-value purple">₺{toplamYatirim.toLocaleString("tr-TR")}</div>
-          <div className="stat-sub">Değerlendirilen miktar</div>
+          <div className="stat-sub">
+            {yuzde(toplamYatirim) ? `Gelirin %${yuzde(toplamYatirim)}'i · ` : ""}Değerlendirilen miktar
+          </div>
         </div>
 
         <div className={`stat-card ${kalan >= 0 ? 'cyan' : 'red'}`}>
@@ -74,7 +81,9 @@ function Dashboard() {
           <div className={`stat-value ${kalan >= 0 ? 'cyan' : 'red'}`}>
             ₺{kalan.toLocaleString("tr-TR")}
           </div>
-          <div className="stat-sub">Eldeki kullanılabilir bakiye</div>
+          <div className="stat-sub">
+            {yuzde(kalan) ? `Gelirin %${yuzde(kalan)}'i · ` : ""}Kullanılabilir bakiye
+          </div>
         </div>
 
         <div className="stat-card flex items-center justify-between">
