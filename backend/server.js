@@ -6,7 +6,7 @@ const fs = require("fs");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const { db } = require("./database");
+const { db, dbReady } = require("./database");
 
 const upload = multer({ dest: "uploads/" });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -17,6 +17,10 @@ const donemToYilAy = (donemAdi) => {
   const [ay, yil] = (donemAdi || "").split(" ");
   return AY_MAP[ay] && yil ? `${yil}-${AY_MAP[ay]}` : null;
 };
+
+// libsql Row nesnelerini düz JSON objesine çevirir
+const toRows = (r) => r.rows.map(row => Object.fromEntries(r.columns.map((col, i) => [col, row[i]])));
+const toRow = (r) => r.rows[0] ? Object.fromEntries(r.columns.map((col, i) => [col, r.rows[0][i]])) : null;
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -42,19 +46,20 @@ app.post("/api/kayit", async (req, res) => {
   try {
     const { isim, email, sifre } = req.body;
     if (!isim || !email || !sifre) return res.status(400).json({ hata: "Tüm alanlar zorunlu" });
-    const mevcut = db.prepare("SELECT id FROM kullanicilar WHERE email = ?").get(email);
+    const mevcut = toRow(await db.execute({ sql: "SELECT id FROM kullanicilar WHERE email = ?", args: [email] }));
     if (mevcut) return res.status(400).json({ hata: "Bu email zaten kayıtlı" });
     const hash = await bcrypt.hash(sifre, 10);
-    const result = db.prepare("INSERT INTO kullanicilar (isim, email, sifre) VALUES (?, ?, ?)").run(isim, email, hash);
-    const token = jwt.sign({ id: result.lastInsertRowid, isim, email }, JWT_SECRET, { expiresIn: "30d" });
-    res.status(201).json({ token, kullanici: { id: result.lastInsertRowid, isim, email } });
+    const result = await db.execute({ sql: "INSERT INTO kullanicilar (isim, email, sifre) VALUES (?, ?, ?)", args: [isim, email, hash] });
+    const id = Number(result.lastInsertRowid);
+    const token = jwt.sign({ id, isim, email }, JWT_SECRET, { expiresIn: "30d" });
+    res.status(201).json({ token, kullanici: { id, isim, email } });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 app.post("/api/giris", async (req, res) => {
   try {
     const { email, sifre } = req.body;
-    const kullanici = db.prepare("SELECT * FROM kullanicilar WHERE email = ?").get(email);
+    const kullanici = toRow(await db.execute({ sql: "SELECT * FROM kullanicilar WHERE email = ?", args: [email] }));
     if (!kullanici) return res.status(400).json({ hata: "Email veya şifre hatalı" });
     const dogru = await bcrypt.compare(sifre, kullanici.sifre);
     if (!dogru) return res.status(400).json({ hata: "Email veya şifre hatalı" });
@@ -63,156 +68,160 @@ app.post("/api/giris", async (req, res) => {
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.get("/api/beni-getir", authMiddleware, (req, res) => {
-  const kullanici = db.prepare("SELECT id, isim, email FROM kullanicilar WHERE id = ?").get(req.kullanici.id);
+app.get("/api/beni-getir", authMiddleware, async (req, res) => {
+  const kullanici = toRow(await db.execute({ sql: "SELECT id, isim, email FROM kullanicilar WHERE id = ?", args: [req.kullanici.id] }));
   res.json(kullanici);
 });
 
 // ==================== GELİRLER ====================
-app.get("/api/gelirler", authMiddleware, (req, res) => {
+app.get("/api/gelirler", authMiddleware, async (req, res) => {
   try {
-    res.json(db.prepare("SELECT * FROM gelirler WHERE kullanici_id = ? ORDER BY tarih DESC").all(req.kullanici.id));
+    res.json(toRows(await db.execute({ sql: "SELECT * FROM gelirler WHERE kullanici_id = ? ORDER BY tarih DESC", args: [req.kullanici.id] })));
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.post("/api/gelirler", authMiddleware, (req, res) => {
+app.post("/api/gelirler", authMiddleware, async (req, res) => {
   try {
     const { tarih, miktar, kategori, aciklama, tekrar_mi } = req.body;
-    const result = db.prepare("INSERT INTO gelirler (tarih, miktar, kategori, aciklama, tekrar_mi, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)").run(tarih, parseFloat(miktar), kategori || "Maaş", aciklama || "", tekrar_mi ? 1 : 0, req.kullanici.id);
-    res.status(201).json({ id: result.lastInsertRowid });
+    const result = await db.execute({ sql: "INSERT INTO gelirler (tarih, miktar, kategori, aciklama, tekrar_mi, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)", args: [tarih, parseFloat(miktar), kategori || "Maaş", aciklama || "", tekrar_mi ? 1 : 0, req.kullanici.id] });
+    res.status(201).json({ id: Number(result.lastInsertRowid) });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.delete("/api/gelirler/:id", authMiddleware, (req, res) => {
+app.delete("/api/gelirler/:id", authMiddleware, async (req, res) => {
   try {
-    db.prepare("DELETE FROM gelirler WHERE id = ? AND kullanici_id = ?").run(req.params.id, req.kullanici.id);
+    await db.execute({ sql: "DELETE FROM gelirler WHERE id = ? AND kullanici_id = ?", args: [req.params.id, req.kullanici.id] });
     res.json({ basarili: true });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 // ==================== HARCAMALAR ====================
-app.get("/api/harcamalar", authMiddleware, (req, res) => {
+app.get("/api/harcamalar", authMiddleware, async (req, res) => {
   try {
-    res.json(db.prepare("SELECT * FROM harcamalar WHERE kullanici_id = ? ORDER BY tarih DESC").all(req.kullanici.id));
+    res.json(toRows(await db.execute({ sql: "SELECT * FROM harcamalar WHERE kullanici_id = ? ORDER BY tarih DESC", args: [req.kullanici.id] })));
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.post("/api/harcamalar", authMiddleware, (req, res) => {
+app.post("/api/harcamalar", authMiddleware, async (req, res) => {
   try {
     const { tarih, miktar, kategori, kart_id, aciklama } = req.body;
-    const result = db.prepare("INSERT INTO harcamalar (tarih, miktar, kategori, kart_id, aciklama, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)").run(tarih, parseFloat(miktar), kategori, kart_id || null, aciklama || "", req.kullanici.id);
-    res.status(201).json({ id: result.lastInsertRowid });
+    const result = await db.execute({ sql: "INSERT INTO harcamalar (tarih, miktar, kategori, kart_id, aciklama, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)", args: [tarih, parseFloat(miktar), kategori, kart_id || null, aciklama || "", req.kullanici.id] });
+    res.status(201).json({ id: Number(result.lastInsertRowid) });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.delete("/api/harcamalar/:id", authMiddleware, (req, res) => {
+app.delete("/api/harcamalar/:id", authMiddleware, async (req, res) => {
   try {
-    db.prepare("DELETE FROM harcamalar WHERE id = ? AND kullanici_id = ?").run(req.params.id, req.kullanici.id);
+    await db.execute({ sql: "DELETE FROM harcamalar WHERE id = ? AND kullanici_id = ?", args: [req.params.id, req.kullanici.id] });
     res.json({ basarili: true });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 // ==================== KARTLAR ====================
-app.get("/api/kartlar", authMiddleware, (req, res) => {
+app.get("/api/kartlar", authMiddleware, async (req, res) => {
   try {
-    res.json(db.prepare("SELECT * FROM kartlar WHERE kullanici_id = ? ORDER BY isim").all(req.kullanici.id));
+    res.json(toRows(await db.execute({ sql: "SELECT * FROM kartlar WHERE kullanici_id = ? ORDER BY isim", args: [req.kullanici.id] })));
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.post("/api/kartlar", authMiddleware, (req, res) => {
+app.post("/api/kartlar", authMiddleware, async (req, res) => {
   try {
     const { isim, limit_miktar, son_odeme_gunu, banka, renk } = req.body;
-    const result = db.prepare("INSERT INTO kartlar (isim, limit_miktar, son_odeme_gunu, banka, renk, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)").run(isim, parseFloat(limit_miktar) || 0, parseInt(son_odeme_gunu) || null, banka || "", renk || "#6366f1", req.kullanici.id);
-    res.status(201).json({ id: result.lastInsertRowid });
+    const result = await db.execute({ sql: "INSERT INTO kartlar (isim, limit_miktar, son_odeme_gunu, banka, renk, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)", args: [isim, parseFloat(limit_miktar) || 0, parseInt(son_odeme_gunu) || null, banka || "", renk || "#6366f1", req.kullanici.id] });
+    res.status(201).json({ id: Number(result.lastInsertRowid) });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.delete("/api/kartlar/:id", authMiddleware, (req, res) => {
+app.delete("/api/kartlar/:id", authMiddleware, async (req, res) => {
   try {
-    db.prepare("DELETE FROM kartlar WHERE id = ? AND kullanici_id = ?").run(req.params.id, req.kullanici.id);
+    await db.execute({ sql: "DELETE FROM kartlar WHERE id = ? AND kullanici_id = ?", args: [req.params.id, req.kullanici.id] });
     res.json({ basarili: true });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 // ==================== YATIRIMLAR ====================
-app.get("/api/yatirimlar", authMiddleware, (req, res) => {
+app.get("/api/yatirimlar", authMiddleware, async (req, res) => {
   try {
-    res.json(db.prepare("SELECT * FROM yatirimlar WHERE kullanici_id = ? ORDER BY tarih DESC").all(req.kullanici.id));
+    res.json(toRows(await db.execute({ sql: "SELECT * FROM yatirimlar WHERE kullanici_id = ? ORDER BY tarih DESC", args: [req.kullanici.id] })));
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.post("/api/yatirimlar", authMiddleware, (req, res) => {
+app.post("/api/yatirimlar", authMiddleware, async (req, res) => {
   try {
     const { tip, miktar, alis_fiyati, tarih, aciklama } = req.body;
-    const result = db.prepare("INSERT INTO yatirimlar (tip, miktar, alis_fiyati, tarih, aciklama, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)").run(tip, parseFloat(miktar), parseFloat(alis_fiyati), tarih, aciklama || "", req.kullanici.id);
-    res.status(201).json({ id: result.lastInsertRowid });
+    const result = await db.execute({ sql: "INSERT INTO yatirimlar (tip, miktar, alis_fiyati, tarih, aciklama, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)", args: [tip, parseFloat(miktar), parseFloat(alis_fiyati), tarih, aciklama || "", req.kullanici.id] });
+    res.status(201).json({ id: Number(result.lastInsertRowid) });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.delete("/api/yatirimlar/:id", authMiddleware, (req, res) => {
+app.delete("/api/yatirimlar/:id", authMiddleware, async (req, res) => {
   try {
-    db.prepare("DELETE FROM yatirimlar WHERE id = ? AND kullanici_id = ?").run(req.params.id, req.kullanici.id);
+    await db.execute({ sql: "DELETE FROM yatirimlar WHERE id = ? AND kullanici_id = ?", args: [req.params.id, req.kullanici.id] });
     res.json({ basarili: true });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 // ==================== HEDEFLER ====================
-app.get("/api/hedefler", authMiddleware, (req, res) => {
+app.get("/api/hedefler", authMiddleware, async (req, res) => {
   try {
-    res.json(db.prepare("SELECT * FROM hedefler WHERE kullanici_id = ? ORDER BY rowid DESC").all(req.kullanici.id));
+    res.json(toRows(await db.execute({ sql: "SELECT * FROM hedefler WHERE kullanici_id = ? ORDER BY id DESC", args: [req.kullanici.id] })));
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.post("/api/hedefler", authMiddleware, (req, res) => {
+app.post("/api/hedefler", authMiddleware, async (req, res) => {
   try {
     const { isim, hedef_miktar, mevcut_miktar, bitis_tarihi } = req.body;
-    const result = db.prepare("INSERT INTO hedefler (isim, hedef_miktar, mevcut_miktar, bitis_tarihi, kullanici_id) VALUES (?, ?, ?, ?, ?)").run(isim, parseFloat(hedef_miktar), parseFloat(mevcut_miktar) || 0, bitis_tarihi || null, req.kullanici.id);
-    res.status(201).json({ id: result.lastInsertRowid });
+    const result = await db.execute({ sql: "INSERT INTO hedefler (isim, hedef_miktar, mevcut_miktar, bitis_tarihi, kullanici_id) VALUES (?, ?, ?, ?, ?)", args: [isim, parseFloat(hedef_miktar), parseFloat(mevcut_miktar) || 0, bitis_tarihi || null, req.kullanici.id] });
+    res.status(201).json({ id: Number(result.lastInsertRowid) });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.delete("/api/hedefler/:id", authMiddleware, (req, res) => {
+app.delete("/api/hedefler/:id", authMiddleware, async (req, res) => {
   try {
-    db.prepare("DELETE FROM hedefler WHERE id = ? AND kullanici_id = ?").run(req.params.id, req.kullanici.id);
+    await db.execute({ sql: "DELETE FROM hedefler WHERE id = ? AND kullanici_id = ?", args: [req.params.id, req.kullanici.id] });
     res.json({ basarili: true });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 // ==================== KURALLAR ====================
-app.get("/api/kurallar", authMiddleware, (req, res) => {
+app.get("/api/kurallar", authMiddleware, async (req, res) => {
   try {
-    res.json(db.prepare("SELECT * FROM kurallar WHERE kullanici_id = ? ORDER BY id").all(req.kullanici.id));
+    res.json(toRows(await db.execute({ sql: "SELECT * FROM kurallar WHERE kullanici_id = ? ORDER BY id", args: [req.kullanici.id] })));
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.put("/api/kurallar", authMiddleware, (req, res) => {
+app.put("/api/kurallar", authMiddleware, async (req, res) => {
   try {
     const { kurallar } = req.body;
-    const guncelle = db.prepare("UPDATE kurallar SET yuzde = ? WHERE id = ? AND kullanici_id = ?");
-    kurallar.forEach(k => guncelle.run(k.yuzde, k.id, req.kullanici.id));
+    await db.batch(
+      kurallar.map(k => ({ sql: "UPDATE kurallar SET yuzde = ? WHERE id = ? AND kullanici_id = ?", args: [k.yuzde, k.id, req.kullanici.id] })),
+      "write"
+    );
     res.json({ basarili: true });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.post("/api/kurallar/profil", authMiddleware, (req, res) => {
+app.post("/api/kurallar/profil", authMiddleware, async (req, res) => {
   try {
     const { profilAdi } = req.body;
     const kategoriler = ["Kredi Kartı Ödemesi", "Altın Yatırımı", "Hisse Senedi", "Nakit", "Serbest"];
-    const ekle = db.prepare("INSERT INTO kurallar (profil_adi, aktif, kategori, yuzde, kullanici_id) VALUES (?, ?, ?, ?, ?)");
-    kategoriler.forEach(k => ekle.run(profilAdi, 0, k, 0, req.kullanici.id));
-    res.json(db.prepare("SELECT * FROM kurallar WHERE profil_adi = ? AND kullanici_id = ?").all(profilAdi, req.kullanici.id));
+    await db.batch(
+      kategoriler.map(k => ({ sql: "INSERT INTO kurallar (profil_adi, aktif, kategori, yuzde, kullanici_id) VALUES (?, ?, ?, ?, ?)", args: [profilAdi, 0, k, 0, req.kullanici.id] })),
+      "write"
+    );
+    res.json(toRows(await db.execute({ sql: "SELECT * FROM kurallar WHERE profil_adi = ? AND kullanici_id = ?", args: [profilAdi, req.kullanici.id] })));
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.delete("/api/kurallar/profil/:profilAdi", authMiddleware, (req, res) => {
+app.delete("/api/kurallar/profil/:profilAdi", authMiddleware, async (req, res) => {
   try {
-    db.prepare("DELETE FROM kurallar WHERE profil_adi = ? AND kullanici_id = ?").run(req.params.profilAdi, req.kullanici.id);
+    await db.execute({ sql: "DELETE FROM kurallar WHERE profil_adi = ? AND kullanici_id = ?", args: [req.params.profilAdi, req.kullanici.id] });
     res.json({ basarili: true });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 // ==================== DASHBOARD ====================
-app.get("/api/dashboard", authMiddleware, (req, res) => {
+app.get("/api/dashboard", authMiddleware, async (req, res) => {
   try {
     const ay = req.query.ay || new Date().toISOString().slice(0, 7);
     const uid = req.kullanici.id;
@@ -221,28 +230,28 @@ app.get("/api/dashboard", authMiddleware, (req, res) => {
     gecenAyDate.setMonth(gecenAyDate.getMonth() - 1);
     const gecenAyStr = gecenAyDate.toISOString().slice(0, 7);
 
-    const gelir = db.prepare("SELECT COALESCE(SUM(miktar), 0) as toplam FROM gelirler WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?").get(uid, ay);
-    const yatirim = db.prepare("SELECT COALESCE(SUM(miktar * alis_fiyati), 0) as toplam FROM yatirimlar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?").get(uid, ay);
+    const gelirR = await db.execute({ sql: "SELECT COALESCE(SUM(miktar), 0) as toplam FROM gelirler WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?", args: [uid, ay] });
+    const yatirimR = await db.execute({ sql: "SELECT COALESCE(SUM(miktar * alis_fiyati), 0) as toplam FROM yatirimlar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?", args: [uid, ay] });
+    const krediR = await db.execute({ sql: "SELECT COALESCE(SUM(toplam_tutar), 0) as toplam FROM ekstreler WHERE kullanici_id = ? AND donem_yilAy = ?", args: [uid, gecenAyStr] });
 
-    // Kart borcu: geçen ayın ekstre toplamı
-    const krediKartiBorcu = db.prepare("SELECT COALESCE(SUM(toplam_tutar), 0) as toplam FROM ekstreler WHERE kullanici_id = ? AND donem_yilAy = ?").get(uid, gecenAyStr);
-
-    // Kategoriler: geçen ayın ekstrelerinden — ekstre yoksa tarih bazlı fallback
-    let kategoriler = db.prepare(`
-      SELECT h.kategori, SUM(h.miktar) as toplam
-      FROM harcamalar h
-      JOIN ekstreler e ON h.ekstre_id = e.id
-      WHERE h.kullanici_id = ? AND e.donem_yilAy = ?
-      GROUP BY h.kategori ORDER BY toplam DESC
-    `).all(uid, gecenAyStr);
+    let kategorilerR = await db.execute({
+      sql: `SELECT h.kategori, SUM(h.miktar) as toplam
+            FROM harcamalar h
+            JOIN ekstreler e ON h.ekstre_id = e.id
+            WHERE h.kullanici_id = ? AND e.donem_yilAy = ?
+            GROUP BY h.kategori ORDER BY toplam DESC`,
+      args: [uid, gecenAyStr],
+    });
+    let kategoriler = toRows(kategorilerR);
 
     if (kategoriler.length === 0) {
-      kategoriler = db.prepare("SELECT kategori, SUM(miktar) as toplam FROM harcamalar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ? GROUP BY kategori ORDER BY toplam DESC").all(uid, gecenAyStr);
+      kategoriler = toRows(await db.execute({ sql: "SELECT kategori, SUM(miktar) as toplam FROM harcamalar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ? GROUP BY kategori ORDER BY toplam DESC", args: [uid, gecenAyStr] }));
     }
 
-    const toplam_gelir = gelir.toplam;
-    const toplam_harcama = krediKartiBorcu.toplam;
-    const kalan = toplam_gelir - toplam_harcama - yatirim.toplam;
+    const toplam_gelir = Number(gelirR.rows[0][0] ?? 0);
+    const toplam_harcama = Number(krediR.rows[0][0] ?? 0);
+    const toplam_yatirim = Number(yatirimR.rows[0][0] ?? 0);
+    const kalan = toplam_gelir - toplam_harcama - toplam_yatirim;
 
     let saglik_skoru = 100;
     if (toplam_gelir > 0) {
@@ -252,28 +261,27 @@ app.get("/api/dashboard", authMiddleware, (req, res) => {
       else if (oran > 0.5) saglik_skoru = 70;
       else saglik_skoru = 90;
     }
-    res.json({ toplam_gelir, toplam_harcama, kalan, saglik_skoru, kategoriler, ay, toplam_yatirim: yatirim.toplam, kredi_karti_borcu: krediKartiBorcu.toplam, gecen_ay: gecenAyStr });
+    res.json({ toplam_gelir, toplam_harcama, kalan, saglik_skoru, kategoriler, ay, toplam_yatirim, kredi_karti_borcu: toplam_harcama, gecen_ay: gecenAyStr });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 // ==================== DAGILIM ====================
-app.post("/api/dagilim-hesapla", authMiddleware, (req, res) => {
+app.post("/api/dagilim-hesapla", authMiddleware, async (req, res) => {
   try {
     const { gelir, profilAdi } = req.body;
     let kurallar;
     if (profilAdi) {
-      kurallar = db.prepare("SELECT * FROM kurallar WHERE profil_adi = ? AND kullanici_id = ?").all(profilAdi, req.kullanici.id);
+      kurallar = toRows(await db.execute({ sql: "SELECT * FROM kurallar WHERE profil_adi = ? AND kullanici_id = ?", args: [profilAdi, req.kullanici.id] }));
     } else {
-      kurallar = db.prepare("SELECT * FROM kurallar WHERE aktif = 1 AND kullanici_id = ?").all(req.kullanici.id);
+      kurallar = toRows(await db.execute({ sql: "SELECT * FROM kurallar WHERE aktif = 1 AND kullanici_id = ?", args: [req.kullanici.id] }));
       if (kurallar.length === 0) {
-        kurallar = db.prepare("SELECT * FROM kurallar WHERE kullanici_id = ? AND profil_adi = (SELECT profil_adi FROM kurallar WHERE kullanici_id = ? LIMIT 1)").all(req.kullanici.id, req.kullanici.id);
+        const ilkProfil = toRow(await db.execute({ sql: "SELECT profil_adi FROM kurallar WHERE kullanici_id = ? LIMIT 1", args: [req.kullanici.id] }));
+        if (ilkProfil) {
+          kurallar = toRows(await db.execute({ sql: "SELECT * FROM kurallar WHERE kullanici_id = ? AND profil_adi = ?", args: [req.kullanici.id, ilkProfil.profil_adi] }));
+        }
       }
     }
-    const dagilim = kurallar.map(k => ({
-      kategori: k.kategori,
-      yuzde: k.yuzde,
-      miktar: (gelir * k.yuzde) / 100
-    }));
+    const dagilim = kurallar.map(k => ({ kategori: k.kategori, yuzde: k.yuzde, miktar: (gelir * k.yuzde) / 100 }));
     res.json({ dagilim });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
@@ -304,17 +312,24 @@ Sadece JSON döndür, başka hiçbir şey yazma.`;
 
     let ekstreId = null;
     if (harcamalar.length > 0) {
-      db.transaction(() => {
-        const ekstreResult = db.prepare(
-          "INSERT INTO ekstreler (kart_id, donem_adi, donem_yilAy, harcama_sayisi, toplam_tutar, sadece_takip, kullanici_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
-        ).run(kartId, donemAdi, donemYilAy, harcamalar.length, toplamTutar, sadeceTakip, req.kullanici.id);
-        ekstreId = ekstreResult.lastInsertRowid;
+      const tx = await db.transaction("write");
+      try {
+        const ekstreResult = await tx.execute({
+          sql: "INSERT INTO ekstreler (kart_id, donem_adi, donem_yilAy, harcama_sayisi, toplam_tutar, sadece_takip, kullanici_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          args: [kartId, donemAdi, donemYilAy, harcamalar.length, toplamTutar, sadeceTakip, req.kullanici.id],
+        });
+        ekstreId = Number(ekstreResult.lastInsertRowid);
         for (const h of harcamalar) {
-          db.prepare(
-            "INSERT INTO harcamalar (tarih, miktar, kategori, kart_id, aciklama, ekstre_id, sadece_takip, kullanici_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-          ).run(h.tarih, h.miktar, h.kategori, kartId, h.aciklama, ekstreId, sadeceTakip, req.kullanici.id);
+          await tx.execute({
+            sql: "INSERT INTO harcamalar (tarih, miktar, kategori, kart_id, aciklama, ekstre_id, sadece_takip, kullanici_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            args: [h.tarih, h.miktar, h.kategori, kartId, h.aciklama, ekstreId, sadeceTakip, req.kullanici.id],
+          });
         }
-      })();
+        await tx.commit();
+      } catch (e) {
+        await tx.rollback();
+        throw e;
+      }
     }
 
     fs.unlinkSync(pdfPath);
@@ -325,34 +340,31 @@ Sadece JSON döndür, başka hiçbir şey yazma.`;
   }
 });
 
-app.get("/api/ekstreler", authMiddleware, (req, res) => {
+app.get("/api/ekstreler", authMiddleware, async (req, res) => {
   try {
-    const ekstreler = db.prepare(`
-      SELECT e.*, k.isim as kart_isim, k.renk as kart_renk, k.banka as kart_banka
-      FROM ekstreler e
-      LEFT JOIN kartlar k ON e.kart_id = k.id
-      WHERE e.kullanici_id = ?
-      ORDER BY e.yukleme_tarihi DESC
-    `).all(req.kullanici.id);
-    res.json(ekstreler);
+    res.json(toRows(await db.execute({
+      sql: `SELECT e.*, k.isim as kart_isim, k.renk as kart_renk, k.banka as kart_banka
+            FROM ekstreler e
+            LEFT JOIN kartlar k ON e.kart_id = k.id
+            WHERE e.kullanici_id = ?
+            ORDER BY e.yukleme_tarihi DESC`,
+      args: [req.kullanici.id],
+    })));
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.get("/api/ekstreler/:id/harcamalar", authMiddleware, (req, res) => {
+app.get("/api/ekstreler/:id/harcamalar", authMiddleware, async (req, res) => {
   try {
-    const harcamalar = db.prepare(
-      "SELECT * FROM harcamalar WHERE ekstre_id = ? AND kullanici_id = ? ORDER BY tarih ASC"
-    ).all(req.params.id, req.kullanici.id);
-    res.json(harcamalar);
+    res.json(toRows(await db.execute({ sql: "SELECT * FROM harcamalar WHERE ekstre_id = ? AND kullanici_id = ? ORDER BY tarih ASC", args: [req.params.id, req.kullanici.id] })));
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.delete("/api/ekstreler/:id", authMiddleware, (req, res) => {
+app.delete("/api/ekstreler/:id", authMiddleware, async (req, res) => {
   try {
-    db.transaction(() => {
-      db.prepare("DELETE FROM harcamalar WHERE ekstre_id = ? AND kullanici_id = ?").run(req.params.id, req.kullanici.id);
-      db.prepare("DELETE FROM ekstreler WHERE id = ? AND kullanici_id = ?").run(req.params.id, req.kullanici.id);
-    })();
+    await db.batch([
+      { sql: "DELETE FROM harcamalar WHERE ekstre_id = ? AND kullanici_id = ?", args: [req.params.id, req.kullanici.id] },
+      { sql: "DELETE FROM ekstreler WHERE id = ? AND kullanici_id = ?", args: [req.params.id, req.kullanici.id] },
+    ], "write");
     res.json({ basarili: true });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
@@ -363,8 +375,8 @@ app.post("/api/ai-sohbet", authMiddleware, async (req, res) => {
     const { soru, gecmis } = req.body;
     if (!soru) return res.status(400).json({ hata: "Soru boş olamaz" });
     const uid = req.kullanici.id;
-    const gelirSonAylar = db.prepare("SELECT strftime('%Y-%m', tarih) as ay, SUM(miktar) as toplam FROM gelirler WHERE kullanici_id = ? GROUP BY ay ORDER BY ay DESC LIMIT 6").all(uid);
-    const harcamaSonAylar = db.prepare("SELECT strftime('%Y-%m', tarih) as ay, kategori, SUM(miktar) as toplam FROM harcamalar WHERE kullanici_id = ? GROUP BY ay, kategori ORDER BY ay DESC").all(uid);
+    const gelirSonAylar = toRows(await db.execute({ sql: "SELECT strftime('%Y-%m', tarih) as ay, SUM(miktar) as toplam FROM gelirler WHERE kullanici_id = ? GROUP BY ay ORDER BY ay DESC LIMIT 6", args: [uid] }));
+    const harcamaSonAylar = toRows(await db.execute({ sql: "SELECT strftime('%Y-%m', tarih) as ay, kategori, SUM(miktar) as toplam FROM harcamalar WHERE kullanici_id = ? GROUP BY ay, kategori ORDER BY ay DESC", args: [uid] }));
     const sistem = `Sen bir Türk kişisel finans asistanısın. Kullanıcının tüm finansal geçmişi:
 
 GELİRLER (son 6 ay):
@@ -378,15 +390,15 @@ Kullanıcı hangi ayı sorarsa o aya ait verileri kullan. Türkçe, samimi ve pr
     const chat = model.startChat({
       history: (gecmis || []).slice(-10).map(m => ({ role: m.rol === "user" ? "user" : "model", parts: [{ text: m.icerik }] }))
     });
-    const result = await chat.sendMessage(soru);
-    res.json({ cevap: result.response.text() });
+    const aiResult = await chat.sendMessage(soru);
+    res.json({ cevap: aiResult.response.text() });
   } catch (err) {
     res.status(500).json({ hata: "AI yanıt üretemedi: " + err.message });
   }
 });
 
 // ==================== FİYATLAR ====================
-app.get("/api/fiyatlar", authMiddleware, async (req, res) => {
+app.get("/api/fiyatlar", authMiddleware, async (_req, res) => {
   try {
     const [altinRes, dovizRes] = await Promise.all([
       fetch("https://api.collectapi.com/economy/goldPrice", {
@@ -411,6 +423,8 @@ app.get("/api/fiyatlar", authMiddleware, async (req, res) => {
 });
 
 // ==================== SUNUCU ====================
-app.listen(PORT, () => {
-  console.log(`✅ Sunucu çalışıyor: http://localhost:${PORT}`);
+dbReady.then(() => {
+  app.listen(PORT, () => {
+    console.log(`✅ Sunucu çalışıyor: http://localhost:${PORT}`);
+  });
 });
