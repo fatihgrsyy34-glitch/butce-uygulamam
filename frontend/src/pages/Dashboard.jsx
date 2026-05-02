@@ -63,16 +63,26 @@ function Dashboard() {
         <div className="stat-card red" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid var(--red)" }}>
           <div className="stat-label flex items-center gap-sm">💳 Kart Borcu (Ödenecek)</div>
           <div className="stat-value red">₺{kartBorcu.toLocaleString("tr-TR")}</div>
-          <div className="stat-sub">
-            {yuzde(kartBorcu) ? `Gelirin %${yuzde(kartBorcu)}'i · ` : ""}{veri.gecen_ay} dönemi
+          <div className="flex items-center gap-sm mt-sm">
+            {yuzde(kartBorcu) && (
+              <span style={{ background: "var(--red-soft)", color: "var(--red)", fontSize: "12px", fontWeight: "700", padding: "2px 8px", borderRadius: "6px" }}>
+                %{yuzde(kartBorcu)}
+              </span>
+            )}
+            <span className="stat-sub">{veri.gecen_ay} dönemi</span>
           </div>
         </div>
 
         <div className="stat-card purple" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid var(--accent-primary)" }}>
           <div className="stat-label flex items-center gap-sm">📈 Bu Ay Yatırım</div>
           <div className="stat-value purple">₺{toplamYatirim.toLocaleString("tr-TR")}</div>
-          <div className="stat-sub">
-            {yuzde(toplamYatirim) ? `Gelirin %${yuzde(toplamYatirim)}'i · ` : ""}Değerlendirilen miktar
+          <div className="flex items-center gap-sm mt-sm">
+            {yuzde(toplamYatirim) && (
+              <span style={{ background: "rgba(59,130,246,0.1)", color: "var(--accent-primary)", fontSize: "12px", fontWeight: "700", padding: "2px 8px", borderRadius: "6px" }}>
+                %{yuzde(toplamYatirim)}
+              </span>
+            )}
+            <span className="stat-sub">Değerlendirilen miktar</span>
           </div>
         </div>
 
@@ -81,8 +91,13 @@ function Dashboard() {
           <div className={`stat-value ${kalan >= 0 ? 'cyan' : 'red'}`}>
             ₺{kalan.toLocaleString("tr-TR")}
           </div>
-          <div className="stat-sub">
-            {yuzde(kalan) ? `Gelirin %${yuzde(kalan)}'i · ` : ""}Kullanılabilir bakiye
+          <div className="flex items-center gap-sm mt-sm">
+            {yuzde(kalan) && (
+              <span style={{ background: kalan >= 0 ? "var(--cyan-soft)" : "var(--red-soft)", color: kalan >= 0 ? "var(--cyan)" : "var(--red)", fontSize: "12px", fontWeight: "700", padding: "2px 8px", borderRadius: "6px" }}>
+                %{yuzde(kalan)}
+              </span>
+            )}
+            <span className="stat-sub">Kullanılabilir bakiye</span>
           </div>
         </div>
 
