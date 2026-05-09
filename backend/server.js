@@ -148,9 +148,17 @@ app.get("/api/yatirimlar", authMiddleware, async (req, res) => {
 
 app.post("/api/yatirimlar", authMiddleware, async (req, res) => {
   try {
-    const { tip, miktar, alis_fiyati, tarih, aciklama } = req.body;
-    const result = await db.execute({ sql: "INSERT INTO yatirimlar (tip, miktar, alis_fiyati, tarih, aciklama, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)", args: [tip, parseFloat(miktar), parseFloat(alis_fiyati), tarih, aciklama || "", req.kullanici.id] });
+    const { tip, miktar, alis_fiyati, tarih, aciklama, yatirim_disi } = req.body;
+    const result = await db.execute({ sql: "INSERT INTO yatirimlar (tip, miktar, alis_fiyati, tarih, aciklama, yatirim_disi, kullanici_id) VALUES (?, ?, ?, ?, ?, ?, ?)", args: [tip, parseFloat(miktar), parseFloat(alis_fiyati), tarih, aciklama || "", yatirim_disi ? 1 : 0, req.kullanici.id] });
     res.status(201).json({ id: Number(result.lastInsertRowid) });
+  } catch (err) { res.status(500).json({ hata: err.message }); }
+});
+
+app.put("/api/yatirimlar/:id", authMiddleware, async (req, res) => {
+  try {
+    const { tip, miktar, alis_fiyati, tarih, aciklama, yatirim_disi } = req.body;
+    await db.execute({ sql: "UPDATE yatirimlar SET tip=?, miktar=?, alis_fiyati=?, tarih=?, aciklama=?, yatirim_disi=? WHERE id=? AND kullanici_id=?", args: [tip, parseFloat(miktar), parseFloat(alis_fiyati), tarih, aciklama || "", yatirim_disi ? 1 : 0, req.params.id, req.kullanici.id] });
+    res.json({ basarili: true });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
@@ -231,7 +239,7 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
     const gecenAyStr = gecenAyDate.toISOString().slice(0, 7);
 
     const gelirR = await db.execute({ sql: "SELECT COALESCE(SUM(miktar), 0) as toplam FROM gelirler WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?", args: [uid, ay] });
-    const yatirimR = await db.execute({ sql: "SELECT COALESCE(SUM(miktar * alis_fiyati), 0) as toplam FROM yatirimlar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?", args: [uid, ay] });
+    const yatirimR = await db.execute({ sql: "SELECT COALESCE(SUM(miktar * alis_fiyati), 0) as toplam FROM yatirimlar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ? AND (yatirim_disi = 0 OR yatirim_disi IS NULL)", args: [uid, ay] });
     const krediR = await db.execute({ sql: "SELECT COALESCE(SUM(toplam_tutar), 0) as toplam FROM ekstreler WHERE kullanici_id = ? AND donem_yilAy = ?", args: [uid, gecenAyStr] });
 
     let kategorilerR = await db.execute({

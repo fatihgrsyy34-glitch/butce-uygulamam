@@ -96,6 +96,7 @@ const initDb = async () => {
     await kolonEkle(t);
   }
 
+  try { await db.execute("ALTER TABLE yatirimlar ADD COLUMN yatirim_disi INTEGER DEFAULT 0"); } catch (e) {}
   try { await db.execute("ALTER TABLE harcamalar ADD COLUMN ekstre_id INTEGER REFERENCES ekstreler(id) ON DELETE SET NULL"); } catch (e) {}
   try { await db.execute("ALTER TABLE harcamalar ADD COLUMN sadece_takip INTEGER DEFAULT 0"); } catch (e) {}
   try { await db.execute("ALTER TABLE ekstreler ADD COLUMN sadece_takip INTEGER DEFAULT 0"); } catch (e) {}

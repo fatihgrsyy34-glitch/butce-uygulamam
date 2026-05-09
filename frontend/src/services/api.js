@@ -56,6 +56,7 @@ export const kartAPI = {
 export const yatirimAPI = {
   getirAll: () => api.get("/yatirimlar"),
   ekle: (veri) => api.post("/yatirimlar", veri),
+  guncelle: (id, veri) => api.put(`/yatirimlar/${id}`, veri),
   sil: (id) => api.delete(`/yatirimlar/${id}`),
 };
 
