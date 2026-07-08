@@ -95,6 +95,16 @@ app.delete("/api/gelirler/:id", authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
+app.post("/api/gelirler/toplu-sil", authMiddleware, async (req, res) => {
+  try {
+    const ids = (req.body.ids || []).map(Number).filter(Number.isInteger);
+    if (ids.length === 0) return res.status(400).json({ hata: "Silinecek kayıt seçilmedi" });
+    const placeholders = ids.map(() => "?").join(",");
+    await db.execute({ sql: `DELETE FROM gelirler WHERE id IN (${placeholders}) AND kullanici_id = ?`, args: [...ids, req.kullanici.id] });
+    res.json({ basarili: true, silinen: ids.length });
+  } catch (err) { res.status(500).json({ hata: err.message }); }
+});
+
 // ==================== HARCAMALAR ====================
 app.get("/api/harcamalar", authMiddleware, async (req, res) => {
   try {
@@ -114,6 +124,16 @@ app.delete("/api/harcamalar/:id", authMiddleware, async (req, res) => {
   try {
     await db.execute({ sql: "DELETE FROM harcamalar WHERE id = ? AND kullanici_id = ?", args: [req.params.id, req.kullanici.id] });
     res.json({ basarili: true });
+  } catch (err) { res.status(500).json({ hata: err.message }); }
+});
+
+app.post("/api/harcamalar/toplu-sil", authMiddleware, async (req, res) => {
+  try {
+    const ids = (req.body.ids || []).map(Number).filter(Number.isInteger);
+    if (ids.length === 0) return res.status(400).json({ hata: "Silinecek kayıt seçilmedi" });
+    const placeholders = ids.map(() => "?").join(",");
+    await db.execute({ sql: `DELETE FROM harcamalar WHERE id IN (${placeholders}) AND kullanici_id = ?`, args: [...ids, req.kullanici.id] });
+    res.json({ basarili: true, silinen: ids.length });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
@@ -237,10 +257,22 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
     const gecenAyDate = new Date(ay + "-01");
     gecenAyDate.setMonth(gecenAyDate.getMonth() - 1);
     const gecenAyStr = gecenAyDate.toISOString().slice(0, 7);
+    // İki ay önce — kart borcu (off-by-one) için bir önceki gösterilen dönem
+    const ikiAyOnceDate = new Date(ay + "-01");
+    ikiAyOnceDate.setMonth(ikiAyOnceDate.getMonth() - 2);
+    const ikiAyOnceStr = ikiAyOnceDate.toISOString().slice(0, 7);
 
     const gelirR = await db.execute({ sql: "SELECT COALESCE(SUM(miktar), 0) as toplam FROM gelirler WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?", args: [uid, ay] });
     const yatirimR = await db.execute({ sql: "SELECT COALESCE(SUM(miktar * alis_fiyati), 0) as toplam FROM yatirimlar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ? AND (yatirim_disi = 0 OR yatirim_disi IS NULL)", args: [uid, ay] });
     const krediR = await db.execute({ sql: "SELECT COALESCE(SUM(toplam_tutar), 0) as toplam FROM ekstreler WHERE kullanici_id = ? AND donem_yilAy = ?", args: [uid, gecenAyStr] });
+    // Manuel/nakit harcamalar (ekstreden gelmeyen) — seçilen aya göre. ekstre_id IS NULL şartı çift saymayı önler.
+    const nakitR = await db.execute({ sql: "SELECT COALESCE(SUM(miktar), 0) as toplam FROM harcamalar WHERE kullanici_id = ? AND ekstre_id IS NULL AND strftime('%Y-%m', tarih) = ?", args: [uid, ay] });
+
+    // Geçen ay karşılaştırması (MoM % değişim için önceki dönem değerleri)
+    const oncekiGelirR = await db.execute({ sql: "SELECT COALESCE(SUM(miktar), 0) as toplam FROM gelirler WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ?", args: [uid, gecenAyStr] });
+    const oncekiKrediR = await db.execute({ sql: "SELECT COALESCE(SUM(toplam_tutar), 0) as toplam FROM ekstreler WHERE kullanici_id = ? AND donem_yilAy = ?", args: [uid, ikiAyOnceStr] });
+    const oncekiNakitR = await db.execute({ sql: "SELECT COALESCE(SUM(miktar), 0) as toplam FROM harcamalar WHERE kullanici_id = ? AND ekstre_id IS NULL AND strftime('%Y-%m', tarih) = ?", args: [uid, gecenAyStr] });
+    const oncekiYatirimR = await db.execute({ sql: "SELECT COALESCE(SUM(miktar * alis_fiyati), 0) as toplam FROM yatirimlar WHERE kullanici_id = ? AND strftime('%Y-%m', tarih) = ? AND (yatirim_disi = 0 OR yatirim_disi IS NULL)", args: [uid, gecenAyStr] });
 
     let kategorilerR = await db.execute({
       sql: `SELECT h.kategori, SUM(h.miktar) as toplam
@@ -259,7 +291,15 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
     const toplam_gelir = Number(gelirR.rows[0][0] ?? 0);
     const toplam_harcama = Number(krediR.rows[0][0] ?? 0);
     const toplam_yatirim = Number(yatirimR.rows[0][0] ?? 0);
-    const kalan = toplam_gelir - toplam_harcama - toplam_yatirim;
+    const nakit_harcama = Number(nakitR.rows[0][0] ?? 0);
+    const kalan = toplam_gelir - toplam_harcama - nakit_harcama - toplam_yatirim;
+
+    // Önceki dönem toplamları + kalan (MoM karşılaştırması için)
+    const onceki_gelir = Number(oncekiGelirR.rows[0][0] ?? 0);
+    const onceki_kredi_karti_borcu = Number(oncekiKrediR.rows[0][0] ?? 0);
+    const onceki_nakit_harcama = Number(oncekiNakitR.rows[0][0] ?? 0);
+    const onceki_yatirim = Number(oncekiYatirimR.rows[0][0] ?? 0);
+    const onceki_kalan = onceki_gelir - onceki_kredi_karti_borcu - onceki_nakit_harcama - onceki_yatirim;
 
     let saglik_skoru = 100;
     if (toplam_gelir > 0) {
@@ -269,7 +309,17 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
       else if (oran > 0.5) saglik_skoru = 70;
       else saglik_skoru = 90;
     }
-    res.json({ toplam_gelir, toplam_harcama, kalan, saglik_skoru, kategoriler, ay, toplam_yatirim, kredi_karti_borcu: toplam_harcama, gecen_ay: gecenAyStr });
+    res.json({
+      toplam_gelir, toplam_harcama, nakit_harcama, kalan, saglik_skoru, kategoriler, ay,
+      toplam_yatirim, kredi_karti_borcu: toplam_harcama, gecen_ay: gecenAyStr,
+      onceki: {
+        gelir: onceki_gelir,
+        kredi_karti_borcu: onceki_kredi_karti_borcu,
+        nakit_harcama: onceki_nakit_harcama,
+        yatirim: onceki_yatirim,
+        kalan: onceki_kalan,
+      },
+    });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
@@ -318,6 +368,18 @@ Sadece JSON döndür, başka hiçbir şey yazma.`;
     const harcamalar = analizSonucu.harcamalar || [];
     const toplamTutar = harcamalar.reduce((sum, h) => sum + (h.miktar || 0), 0);
 
+    // Mükerrer engeli: aynı kullanıcı + dönem + kart için ekstre zaten varsa reddet
+    if (donemYilAy) {
+      const mevcut = toRow(await db.execute({
+        sql: "SELECT id FROM ekstreler WHERE kullanici_id = ? AND donem_yilAy = ? AND ((kart_id IS NULL AND ? IS NULL) OR kart_id = ?)",
+        args: [req.kullanici.id, donemYilAy, kartId, kartId],
+      }));
+      if (mevcut) {
+        fs.unlinkSync(pdfPath);
+        return res.status(409).json({ hata: "Bu döneme ait bu kart için ekstre zaten var. Önce silin ya da düzenleyin." });
+      }
+    }
+
     let ekstreId = null;
     if (harcamalar.length > 0) {
       const tx = await db.transaction("write");
@@ -364,6 +426,19 @@ app.get("/api/ekstreler", authMiddleware, async (req, res) => {
 app.get("/api/ekstreler/:id/harcamalar", authMiddleware, async (req, res) => {
   try {
     res.json(toRows(await db.execute({ sql: "SELECT * FROM harcamalar WHERE ekstre_id = ? AND kullanici_id = ? ORDER BY tarih ASC", args: [req.params.id, req.kullanici.id] })));
+  } catch (err) { res.status(500).json({ hata: err.message }); }
+});
+
+app.put("/api/ekstreler/:id", authMiddleware, async (req, res) => {
+  try {
+    const { donem_adi, toplam_tutar } = req.body;
+    if (!donem_adi) return res.status(400).json({ hata: "Dönem adı gerekli" });
+    const donemYilAy = donemToYilAy(donem_adi);
+    await db.execute({
+      sql: "UPDATE ekstreler SET donem_adi = ?, donem_yilAy = ?, toplam_tutar = ? WHERE id = ? AND kullanici_id = ?",
+      args: [donem_adi, donemYilAy, parseFloat(toplam_tutar) || 0, req.params.id, req.kullanici.id],
+    });
+    res.json({ basarili: true });
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 

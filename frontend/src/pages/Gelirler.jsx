@@ -6,6 +6,7 @@ function Gelirler() {
   const [gelirler, setGelirler] = useState([]);
   const [filtrelenmis, setFiltrelenmis] = useState([]);
   const [secilenAy, setSecilenAy] = useState(new Date().toISOString().slice(0, 7));
+  const [secili, setSecili] = useState([]);
   const [form, setForm] = useState({
     tarih: "",
     miktar: "",
@@ -37,6 +38,27 @@ function Gelirler() {
     if (window.confirm("Bu geliri silmek istediğine emin misin?")) {
       gelirAPI.sil(id).then(() => {
         setGelirler(gelirler.filter((x) => x.id !== id));
+        setSecili((prev) => prev.filter((x) => x !== id));
+      });
+    }
+  };
+
+  const toggleSecim = (id) => {
+    setSecili((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  const tumunuSec = () => {
+    const hepsi = filtrelenmis.map((g) => g.id);
+    const tumSecili = hepsi.length > 0 && hepsi.every((id) => secili.includes(id));
+    setSecili(tumSecili ? [] : hepsi);
+  };
+
+  const handleTopluSil = () => {
+    if (secili.length === 0) return;
+    if (window.confirm(`${secili.length} gelir kaydı silinecek. Emin misin?`)) {
+      gelirAPI.topluSil(secili).then(() => {
+        setGelirler((prev) => prev.filter((x) => !secili.includes(x.id)));
+        setSecili([]);
       });
     }
   };
@@ -55,7 +77,7 @@ function Gelirler() {
           value={secilenAy}
           onChange={(e) => setSecilenAy(e.target.value)}
           className="input"
-          style={{ width: "auto", background: "var(--green-soft)", borderColor: "rgba(34, 197, 94, 0.3)", color: "var(--green)", fontWeight: 600 }}
+          style={{ width: "auto", background: "var(--green-soft)", borderColor: "var(--green-soft)", color: "var(--green)", fontWeight: 600 }}
         />
       </div>
 
@@ -66,7 +88,7 @@ function Gelirler() {
               <div className="stat-label" style={{ color: "var(--text-muted)" }}>Toplam Kazanç</div>
               <div className="stat-value text-green">₺{toplamGelir.toLocaleString("tr-TR")}</div>
             </div>
-            <div className="score-circle" style={{ background: "rgba(16, 185, 129, 0.2)", color: "var(--green)" }}>
+            <div className="score-circle" style={{ background: "var(--green-soft)", color: "var(--green)" }}>
               💰
             </div>
           </div>
@@ -132,7 +154,21 @@ function Gelirler() {
 
       {/* Liste */}
       <div>
-        <h3 className="card-title" style={{ paddingLeft: "10px" }}>Kazanç Geçmişi</h3>
+        <div className="flex items-center justify-between" style={{ paddingLeft: "10px", paddingRight: "10px", marginBottom: "8px" }}>
+          <h3 className="card-title" style={{ margin: 0 }}>Kazanç Geçmişi</h3>
+          {filtrelenmis.length > 0 && (
+            <div className="flex items-center gap-sm">
+              <button onClick={tumunuSec} className="btn btn-sm" style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}>
+                {filtrelenmis.length > 0 && filtrelenmis.every((g) => secili.includes(g.id)) ? "Seçimi Kaldır" : "Tümünü Seç"}
+              </button>
+              {secili.length > 0 && (
+                <button onClick={handleTopluSil} className="btn btn-danger btn-sm">
+                  🗑 Seçilenleri Sil ({secili.length})
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         {filtrelenmis.length === 0 ? (
           <div className="empty-state">Bu ay için gelir kaydı bulunamadı.</div>
         ) : (
@@ -146,8 +182,14 @@ function Gelirler() {
               const bgGradient = bgs[0];
 
               return (
-                <div key={g.id} className="list-item" style={{ background: bgGradient, border: `1px solid ${catData.color}40` }}>
+                <div key={g.id} className="list-item" style={{ background: secili.includes(g.id) ? "var(--bg-tertiary)" : bgGradient, border: `1px solid ${secili.includes(g.id) ? "var(--green)" : catData.color + "40"}` }}>
                   <div className="list-item-info flex items-center gap-md">
+                    <input
+                      type="checkbox"
+                      checked={secili.includes(g.id)}
+                      onChange={() => toggleSecim(g.id)}
+                      style={{ width: "18px", height: "18px", cursor: "pointer", accentColor: "var(--green)" }}
+                    />
                     <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: catData.bg, color: catData.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}>
                       {catData.icon}
                     </div>

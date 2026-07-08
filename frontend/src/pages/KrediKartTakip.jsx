@@ -26,6 +26,12 @@ function KrediKartTakip() {
   const [formHata, setFormHata] = useState(null);
   const [formIsDragging, setFormIsDragging] = useState(false);
 
+  // Ekstre düzenleme state
+  const [duzenlenenId, setDuzenlenenId] = useState(null);
+  const [duzenAy, setDuzenAy] = useState(AY_ISIMLERI[0]);
+  const [duzenYil, setDuzenYil] = useState(guncelYil);
+  const [duzenTutar, setDuzenTutar] = useState("");
+
   useEffect(() => {
     Promise.all([ekstreAPI.getirAll(), kartAPI.getirAll()]).then(([eRes, kRes]) => {
       setEkstreler(eRes.data);
@@ -49,6 +55,26 @@ function KrediKartTakip() {
     setEkstreler((prev) => prev.filter((e) => e.id !== id));
     setHarcamalar((prev) => { const k = { ...prev }; delete k[id]; return k; });
     if (acikEkstre === id) setAcikEkstre(null);
+  };
+
+  const duzenBaslat = (ekstre) => {
+    const [ay, yil] = (ekstre.donem_adi || "").split(" ");
+    setDuzenlenenId(ekstre.id);
+    setDuzenAy(AY_ISIMLERI.includes(ay) ? ay : AY_ISIMLERI[0]);
+    setDuzenYil(yil || guncelYil);
+    setDuzenTutar(String(ekstre.toplam_tutar ?? ""));
+  };
+
+  const duzenIptal = () => setDuzenlenenId(null);
+
+  const duzenKaydet = async (id) => {
+    await ekstreAPI.guncelle(id, {
+      donem_adi: `${duzenAy} ${duzenYil}`,
+      toplam_tutar: parseFloat(duzenTutar) || 0,
+    });
+    const res = await ekstreAPI.getirAll();
+    setEkstreler(res.data);
+    setDuzenlenenId(null);
   };
 
   const handleYukle = async () => {
@@ -93,13 +119,13 @@ function KrediKartTakip() {
     <div>
       <div className="page-header flex items-center justify-between">
         <div>
-          <h2 className="page-title" style={{ color: "#a855f7" }}>Kredi Kart Takip</h2>
+          <h2 className="page-title" style={{ color: "var(--accent-primary)" }}>Kredi Kart Takip</h2>
           <p className="page-subtitle">Ekstre bazında harcama takibi</p>
         </div>
         <button
           onClick={() => setYukleAcik(!yukleAcik)}
           className="btn"
-          style={{ background: yukleAcik ? "rgba(168,85,247,0.15)" : "linear-gradient(135deg,#a855f7,#6366f1)", color: yukleAcik ? "#a855f7" : "#fff", border: "1px solid rgba(168,85,247,0.4)" }}
+          style={{ background: yukleAcik ? "var(--accent-soft)" : "var(--accent-gradient)", color: yukleAcik ? "var(--accent-primary)" : "#12161C", border: "1px solid var(--bg-card-border-hover)" }}
         >
           {yukleAcik ? "✕ Kapat" : "📤 Ekstre Yükle"}
         </button>
@@ -107,13 +133,13 @@ function KrediKartTakip() {
 
       {/* Yükleme Paneli */}
       {yukleAcik && (
-        <div className="card mb-lg" style={{ borderColor: "rgba(168,85,247,0.3)", background: "var(--bg-secondary)" }}>
-          <h3 className="card-title" style={{ color: "#a855f7" }}>Sadece Takip İçin Ekstre Yükle</h3>
+        <div className="card mb-lg" style={{ borderColor: "var(--bg-card-border-hover)", background: "var(--bg-secondary)" }}>
+          <h3 className="card-title" style={{ color: "var(--accent-primary)" }}>Sadece Takip İçin Ekstre Yükle</h3>
           <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "16px" }}>Bu ekstreler yalnızca burada görünür, Harcamalar sekmesine yansımaz.</p>
           <div className="flex gap-md mb-md" style={{ flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: "180px" }}>
               <label className="form-label">Dönem</label>
-              <select value={formAy} onChange={(e) => setFormAy(e.target.value)} className="input" style={{ borderColor: "rgba(168,85,247,0.3)", background: "var(--bg-tertiary)" }}>
+              <select value={formAy} onChange={(e) => setFormAy(e.target.value)} className="input" style={{ borderColor: "var(--bg-card-border-hover)", background: "var(--bg-tertiary)" }}>
                 {AY_ISIMLERI.map((ay) => (
                   <option key={ay} value={ay}>{ay} {guncelYil}</option>
                 ))}
@@ -121,7 +147,7 @@ function KrediKartTakip() {
             </div>
             <div style={{ flex: 1, minWidth: "180px" }}>
               <label className="form-label">Kart (Opsiyonel)</label>
-              <select value={formKart} onChange={(e) => setFormKart(e.target.value)} className="input" style={{ borderColor: "rgba(168,85,247,0.3)", background: "var(--bg-tertiary)" }}>
+              <select value={formKart} onChange={(e) => setFormKart(e.target.value)} className="input" style={{ borderColor: "var(--bg-card-border-hover)", background: "var(--bg-tertiary)" }}>
                 <option value="">Kart seçin</option>
                 {kartlar.map((k) => <option key={k.id} value={k.id}>{k.isim}</option>)}
               </select>
@@ -133,18 +159,18 @@ function KrediKartTakip() {
             onDragLeave={() => setFormIsDragging(false)}
             onDrop={(e) => { e.preventDefault(); setFormIsDragging(false); if (e.dataTransfer.files[0]) setFormDosya(e.dataTransfer.files[0]); }}
             className="upload-zone"
-            style={{ borderColor: formIsDragging || formDosya ? "#a855f7" : "var(--bg-card-border)", background: formIsDragging || formDosya ? "rgba(168,85,247,0.08)" : "var(--bg-tertiary)", cursor: "pointer", marginBottom: "16px" }}
+            style={{ borderColor: formIsDragging || formDosya ? "var(--accent-primary)" : "var(--bg-card-border)", background: formIsDragging || formDosya ? "var(--accent-soft)" : "var(--bg-tertiary)", cursor: "pointer", marginBottom: "16px" }}
           >
             <input type="file" id="kktFileRef" accept=".pdf" onChange={(e) => setFormDosya(e.target.files[0])} style={{ display: "none" }} />
             {formDosya ? (
-              <div><div style={{ fontSize: "36px", marginBottom: "8px" }}>📄</div><strong style={{ color: "#a855f7" }}>{formDosya.name}</strong></div>
+              <div><div style={{ fontSize: "36px", marginBottom: "8px" }}>📄</div><strong style={{ color: "var(--accent-primary)" }}>{formDosya.name}</strong></div>
             ) : (
               <div><div style={{ fontSize: "36px", marginBottom: "8px" }}>📥</div><strong style={{ color: "var(--text-primary)" }}>PDF Sürükle veya Tıkla</strong></div>
             )}
           </div>
           {formHata && <div style={{ color: "var(--red)", fontSize: "13px", marginBottom: "12px" }}>❌ {formHata}</div>}
           <button onClick={handleYukle} disabled={formYukleniyor || !formDosya} className="btn"
-            style={{ background: formYukleniyor || !formDosya ? "rgba(168,85,247,0.2)" : "linear-gradient(135deg,#a855f7,#6366f1)", color: "#fff", width: "220px", justifyContent: "center" }}>
+            style={{ background: formYukleniyor || !formDosya ? "var(--accent-soft)" : "var(--accent-gradient)", color: "#12161C", width: "220px", justifyContent: "center" }}>
             {formYukleniyor ? "⏳ Analiz ediliyor..." : "🚀 Yükle & Kaydet"}
           </button>
         </div>
@@ -153,13 +179,13 @@ function KrediKartTakip() {
       {/* Filtreler */}
       <div className="flex gap-sm mb-lg" style={{ flexWrap: "wrap" }}>
         <select value={secilenAyFiltre} onChange={(e) => setSecilenAyFiltre(e.target.value)} className="input"
-          style={{ width: "auto", background: "var(--bg-secondary)", borderColor: "rgba(168,85,247,0.3)", color: "var(--text-primary)", fontWeight: 600 }}>
+          style={{ width: "auto", background: "var(--bg-secondary)", borderColor: "var(--bg-card-border-hover)", color: "var(--text-primary)", fontWeight: 600 }}>
           <option value="">Tüm Aylar</option>
           {AY_ISIMLERI.map((ay) => <option key={ay} value={ay}>{ay}</option>)}
         </select>
         {kartListesi.length > 0 && (
           <select value={secilenKart} onChange={(e) => setSecilenKart(e.target.value)} className="input"
-            style={{ width: "auto", background: "var(--bg-secondary)", borderColor: "rgba(168,85,247,0.3)", color: "var(--text-primary)", fontWeight: 600 }}>
+            style={{ width: "auto", background: "var(--bg-secondary)", borderColor: "var(--bg-card-border-hover)", color: "var(--text-primary)", fontWeight: 600 }}>
             <option value="">Tüm Kartlar</option>
             {kartListesi.map((k) => <option key={k.id} value={k.id}>{k.isim}</option>)}
           </select>
@@ -168,22 +194,22 @@ function KrediKartTakip() {
 
       {/* İstatistikler */}
       <div className="stat-grid mb-lg">
-        <div className="stat-card" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid #a855f7" }}>
+        <div className="stat-card" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid var(--accent-primary)" }}>
           <div className="flex items-center justify-between">
-            <div><div className="stat-label">Ekstre Sayısı</div><div className="stat-value" style={{ color: "#a855f7" }}>{filtrelenmis.length}</div></div>
-            <div className="score-circle" style={{ background: "rgba(168,85,247,0.15)", color: "#a855f7" }}>📄</div>
+            <div><div className="stat-label">Ekstre Sayısı</div><div className="stat-value" style={{ color: "var(--accent-primary)" }}>{filtrelenmis.length}</div></div>
+            <div className="score-circle" style={{ background: "var(--accent-soft)", color: "var(--accent-primary)" }}>📄</div>
           </div>
         </div>
         <div className="stat-card" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid var(--red)" }}>
           <div className="flex items-center justify-between">
             <div><div className="stat-label">Toplam Tutar</div><div className="stat-value text-red">₺{toplamTutar.toLocaleString("tr-TR")}</div></div>
-            <div className="score-circle" style={{ background: "rgba(239,68,68,0.15)", color: "var(--red)" }}>💸</div>
+            <div className="score-circle" style={{ background: "var(--red-soft)", color: "var(--red)" }}>💸</div>
           </div>
         </div>
         <div className="stat-card" style={{ background: "var(--bg-secondary)", borderBottom: "4px solid var(--green)" }}>
           <div className="flex items-center justify-between">
             <div><div className="stat-label">Toplam İşlem</div><div className="stat-value text-green">{toplamIslem}</div></div>
-            <div className="score-circle" style={{ background: "rgba(16,185,129,0.15)", color: "var(--green)" }}>🧾</div>
+            <div className="score-circle" style={{ background: "var(--green-soft)", color: "var(--green)" }}>🧾</div>
           </div>
         </div>
       </div>
@@ -197,7 +223,7 @@ function KrediKartTakip() {
       ) : (
         <div className="flex flex-col gap-sm">
           {filtrelenmis.map((ekstre) => {
-            const renk = ekstre.kart_renk || "#a855f7";
+            const renk = ekstre.kart_renk || "#CBA25C";
             const acik = acikEkstre === ekstre.id;
             const eksreHarcamalar = harcamalar[ekstre.id] || [];
             return (
@@ -209,7 +235,7 @@ function KrediKartTakip() {
                       <div style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "15px" }}>
                         {ekstre.donem_adi}
                         {ekstre.kart_isim && <span style={{ color: renk, marginLeft: "8px", fontSize: "13px" }}>• {ekstre.kart_isim}</span>}
-                        {ekstre.sadece_takip === 1 && <span style={{ marginLeft: "8px", fontSize: "11px", background: "rgba(168,85,247,0.15)", color: "#a855f7", padding: "2px 6px", borderRadius: "4px" }}>Takip</span>}
+                        {ekstre.sadece_takip === 1 && <span style={{ marginLeft: "8px", fontSize: "11px", background: "var(--accent-soft)", color: "var(--accent-primary)", padding: "2px 6px", borderRadius: "4px" }}>Takip</span>}
                       </div>
                       <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
                         {ekstre.harcama_sayisi} işlem • {new Date(ekstre.yukleme_tarihi).toLocaleDateString("tr-TR")} yüklendi
@@ -218,10 +244,32 @@ function KrediKartTakip() {
                   </div>
                   <div className="flex items-center gap-md">
                     <strong style={{ color: "var(--red)", fontSize: "17px" }}>₺{ekstre.toplam_tutar.toLocaleString("tr-TR")}</strong>
+                    <button onClick={(e) => { e.stopPropagation(); duzenBaslat(ekstre); }} className="btn btn-sm" style={{ background: "var(--bg-tertiary)", color: renk, opacity: 0.85 }} title="Düzenle">✎</button>
                     <button onClick={(e) => { e.stopPropagation(); handleSil(ekstre.id); }} className="btn btn-danger btn-sm" style={{ opacity: 0.7 }}>✕</button>
                     <span style={{ color: "var(--text-muted)", fontSize: "18px" }}>{acik ? "▲" : "▼"}</span>
                   </div>
                 </div>
+                {duzenlenenId === ekstre.id && (
+                  <div className="flex items-center gap-md" style={{ padding: "16px 20px", borderTop: `1px solid ${renk}30`, background: "var(--bg-secondary)", flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: "12px" }}>Dönem</label>
+                      <div className="flex gap-sm">
+                        <select value={duzenAy} onChange={(e) => setDuzenAy(e.target.value)} className="input" style={{ width: "auto" }}>
+                          {AY_ISIMLERI.map((ay) => <option key={ay} value={ay}>{ay}</option>)}
+                        </select>
+                        <input type="number" value={duzenYil} onChange={(e) => setDuzenYil(e.target.value)} className="input" style={{ width: "90px" }} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="form-label" style={{ fontSize: "12px" }}>Toplam Tutar (₺)</label>
+                      <input type="number" step="0.01" value={duzenTutar} onChange={(e) => setDuzenTutar(e.target.value)} className="input" style={{ width: "160px" }} />
+                    </div>
+                    <div className="flex gap-sm" style={{ alignSelf: "flex-end" }}>
+                      <button onClick={() => duzenKaydet(ekstre.id)} className="btn btn-sm" style={{ background: "var(--accent-gradient)", color: "#12161C" }}>💾 Kaydet</button>
+                      <button onClick={duzenIptal} className="btn btn-sm" style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}>İptal</button>
+                    </div>
+                  </div>
+                )}
                 {acik && (
                   <div style={{ borderTop: `1px solid ${renk}30`, background: "var(--bg-tertiary)" }}>
                     {eksreHarcamalar.length === 0 ? (

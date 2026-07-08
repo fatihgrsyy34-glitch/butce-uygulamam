@@ -8,6 +8,7 @@ function Harcamalar() {
   const [kartlar, setKartlar] = useState([]);
   const [secilenAy, setSecilenAy] = useState(new Date().toISOString().slice(0, 7));
   const [secilenKart, setSecilenKart] = useState("");
+  const [secili, setSecili] = useState([]);
   const [form, setForm] = useState({
     tarih: "",
     miktar: "",
@@ -46,6 +47,27 @@ function Harcamalar() {
     if (window.confirm("Bu harcamayı silmek istediğine emin misin?")) {
       harcamaAPI.sil(id).then(() => {
         setHarcamalar(harcamalar.filter((x) => x.id !== id));
+        setSecili((prev) => prev.filter((x) => x !== id));
+      });
+    }
+  };
+
+  const toggleSecim = (id) => {
+    setSecili((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  const tumunuSec = () => {
+    const hepsi = filtrelenmis.map((h) => h.id);
+    const tumSecili = hepsi.length > 0 && hepsi.every((id) => secili.includes(id));
+    setSecili(tumSecili ? [] : hepsi);
+  };
+
+  const handleTopluSil = () => {
+    if (secili.length === 0) return;
+    if (window.confirm(`${secili.length} harcama silinecek. Emin misin?`)) {
+      harcamaAPI.topluSil(secili).then(() => {
+        setHarcamalar((prev) => prev.filter((x) => !secili.includes(x.id)));
+        setSecili([]);
       });
     }
   };
@@ -64,7 +86,7 @@ function Harcamalar() {
             value={secilenKart}
             onChange={(e) => setSecilenKart(e.target.value)}
             className="input"
-            style={{ width: "auto", background: "var(--bg-secondary)", borderColor: "rgba(239, 68, 68, 0.3)", color: "var(--text-primary)", fontWeight: 600 }}
+            style={{ width: "auto", background: "var(--bg-secondary)", borderColor: "var(--red-soft)", color: "var(--text-primary)", fontWeight: 600 }}
           >
             <option value="">💳 Tüm Kartlar</option>
             <option value="nakit">💵 Nakit / Hesaptan</option>
@@ -77,7 +99,7 @@ function Harcamalar() {
             value={secilenAy}
             onChange={(e) => setSecilenAy(e.target.value)}
             className="input"
-            style={{ width: "auto", background: "var(--red-soft)", borderColor: "rgba(239, 68, 68, 0.3)", color: "var(--red)", fontWeight: 600 }}
+            style={{ width: "auto", background: "var(--red-soft)", borderColor: "var(--red-soft)", color: "var(--red)", fontWeight: 600 }}
           />
         </div>
       </div>
@@ -89,7 +111,7 @@ function Harcamalar() {
               <div className="stat-label" style={{ color: "var(--text-muted)" }}>Toplam Harcama</div>
               <div className="stat-value text-red">₺{toplamHarcama.toLocaleString("tr-TR")}</div>
             </div>
-            <div className="score-circle" style={{ background: "rgba(239, 68, 68, 0.2)", color: "var(--red)" }}>
+            <div className="score-circle" style={{ background: "var(--red-soft)", color: "var(--red)" }}>
               💸
             </div>
           </div>
@@ -169,7 +191,21 @@ function Harcamalar() {
 
       {/* Liste */}
       <div>
-        <h3 className="card-title" style={{ paddingLeft: "10px" }}>Harcama Geçmişi</h3>
+        <div className="flex items-center justify-between" style={{ paddingLeft: "10px", paddingRight: "10px", marginBottom: "8px" }}>
+          <h3 className="card-title" style={{ margin: 0 }}>Harcama Geçmişi</h3>
+          {filtrelenmis.length > 0 && (
+            <div className="flex items-center gap-sm">
+              <button onClick={tumunuSec} className="btn btn-sm" style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}>
+                {filtrelenmis.length > 0 && filtrelenmis.every((h) => secili.includes(h.id)) ? "Seçimi Kaldır" : "Tümünü Seç"}
+              </button>
+              {secili.length > 0 && (
+                <button onClick={handleTopluSil} className="btn btn-danger btn-sm">
+                  🗑 Seçilenleri Sil ({secili.length})
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         {filtrelenmis.length === 0 ? (
           <div className="empty-state">Bu ay harcama kaydı bulunamadı.</div>
         ) : (
@@ -179,8 +215,14 @@ function Harcamalar() {
               const catData = getCategoryData(h.kategori);
 
               return (
-                <div key={h.id} className="list-item" style={{ background: "var(--bg-secondary)", border: `1px solid ${catData.color}40` }}>
+                <div key={h.id} className="list-item" style={{ background: secili.includes(h.id) ? "var(--bg-tertiary)" : "var(--bg-secondary)", border: `1px solid ${secili.includes(h.id) ? "var(--red)" : catData.color + "40"}` }}>
                   <div className="list-item-info flex items-center gap-md">
+                    <input
+                      type="checkbox"
+                      checked={secili.includes(h.id)}
+                      onChange={() => toggleSecim(h.id)}
+                      style={{ width: "18px", height: "18px", cursor: "pointer", accentColor: "var(--red)" }}
+                    />
                     <div style={{ width: "42px", height: "42px", borderRadius: "12px", background: catData.bg, color: catData.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>
                       {catData.icon}
                     </div>
@@ -189,7 +231,7 @@ function Harcamalar() {
                       {h.aciklama && <span className="text-muted ml-sm">— {h.aciklama}</span>}
                       <div className="flex gap-md" style={{ marginTop: "4px" }}>
                         <span className="text-xs text-muted">📅 {h.tarih}</span>
-                        {kartIsim && <span className="text-xs" style={{ color: "#a855f7" }}>💳 {kartIsim}</span>}
+                        {kartIsim && <span className="text-xs" style={{ color: "var(--accent-primary)" }}>💳 {kartIsim}</span>}
                       </div>
                     </div>
                   </div>

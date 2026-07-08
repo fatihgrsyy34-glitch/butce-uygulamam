@@ -39,12 +39,14 @@ export const gelirAPI = {
   getirAll: () => api.get("/gelirler"),
   ekle: (veri) => api.post("/gelirler", veri),
   sil: (id) => api.delete(`/gelirler/${id}`),
+  topluSil: (ids) => api.post("/gelirler/toplu-sil", { ids }),
 };
 
 export const harcamaAPI = {
   getirAll: () => api.get("/harcamalar"),
   ekle: (veri) => api.post("/harcamalar", veri),
   sil: (id) => api.delete(`/harcamalar/${id}`),
+  topluSil: (ids) => api.post("/harcamalar/toplu-sil", { ids }),
 };
 
 export const kartAPI = {
@@ -81,6 +83,7 @@ export const dagilimAPI = {
 export const ekstreAPI = {
   getirAll: () => api.get("/ekstreler"),
   harcamalariGetir: (id) => api.get(`/ekstreler/${id}/harcamalar`),
+  guncelle: (id, veri) => api.put(`/ekstreler/${id}`, veri),
   sil: (id) => api.delete(`/ekstreler/${id}`),
 };
 

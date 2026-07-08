@@ -72,7 +72,7 @@ function EkstreYukle() {
         <p className="page-subtitle">PDF ekstreyi yükleyin, Gemini AI otomatik kategorize etsin</p>
       </div>
 
-      <div className="card mt-lg" style={{ background: "var(--bg-secondary)", borderColor: "rgba(6, 182, 212, 0.3)" }}>
+      <div className="card mt-lg" style={{ background: "var(--bg-secondary)", borderColor: "var(--cyan-soft)" }}>
         <div className="flex flex-col gap-lg">
           <div className="flex gap-md" style={{ flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: "200px" }}>
@@ -81,7 +81,7 @@ function EkstreYukle() {
                 value={secilenAy}
                 onChange={(e) => setSecilenAy(e.target.value)}
                 className="input"
-                style={{ border: "1px solid rgba(6, 182, 212, 0.3)", background: "var(--bg-tertiary)" }}
+                style={{ border: "1px solid var(--cyan-soft)", background: "var(--bg-tertiary)" }}
               >
                 {ayIsimler.map((ay) => (
                   <option key={ay} value={ay}>{ay} {guncelYil}</option>
@@ -94,7 +94,7 @@ function EkstreYukle() {
                 value={secilenKart}
                 onChange={(e) => setSecilenKart(e.target.value)}
                 className="input"
-                style={{ border: "1px solid rgba(6, 182, 212, 0.3)", background: "var(--bg-tertiary)" }}
+                style={{ border: "1px solid var(--cyan-soft)", background: "var(--bg-tertiary)" }}
               >
                 <option value="">Kart seçin</option>
                 {kartlar.map((k) => (
@@ -111,8 +111,8 @@ function EkstreYukle() {
             onDrop={onDrop}
             onClick={() => document.getElementById("fileDropRef").click()}
             style={{ 
-              borderColor: isDragging || dosya ? "#06b6d4" : "var(--bg-card-border)", 
-              background: isDragging || dosya ? "rgba(6, 182, 212, 0.1)" : "var(--bg-tertiary)" 
+              borderColor: isDragging || dosya ? "var(--cyan)" : "var(--bg-card-border)",
+              background: isDragging || dosya ? "var(--cyan-soft)" : "var(--bg-tertiary)"
             }}
           >
             <input
@@ -142,7 +142,7 @@ function EkstreYukle() {
               onClick={handleYukle}
               disabled={yukleniyor || !dosya}
               className="btn btn-primary"
-              style={{ width: "240px", height: "46px", justifyContent: "center", background: yukleniyor || !dosya ? "rgba(6, 182, 212, 0.2)" : "linear-gradient(135deg, #06b6d4, #3b82f6)" }}
+              style={{ width: "240px", height: "46px", justifyContent: "center", background: yukleniyor || !dosya ? "var(--cyan-soft)" : "linear-gradient(135deg, #06b6d4, #3b82f6)" }}
             >
               {yukleniyor ? "⏳ Analiz ediliyor..." : "🚀 Yükle & Analiz Et"}
             </button>
@@ -151,14 +151,14 @@ function EkstreYukle() {
       </div>
 
       {hata && (
-        <div className="card mt-lg" style={{ borderColor: "var(--red-soft)", background: "rgba(239, 68, 68, 0.05)" }}>
+        <div className="card mt-lg" style={{ borderColor: "var(--red-soft)", background: "var(--red-soft)" }}>
           <strong className="text-red">❌ Hata:</strong> {hata}
         </div>
       )}
 
       {sonuc && (
         <div className="mt-lg">
-          <div className="card mb-md" style={{ borderColor: "rgba(16, 185, 129, 0.2)", background: "rgba(16, 185, 129, 0.05)" }}>
+          <div className="card mb-md" style={{ borderColor: "var(--green-soft)", background: "var(--green-soft)" }}>
             <strong className="text-green">✅ {sonuc.mesaj}</strong>
           </div>
           

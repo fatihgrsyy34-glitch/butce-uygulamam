@@ -127,8 +127,8 @@ function Grafikler() {
             <YAxis tickFormatter={(v) => `₺${(v/1000).toFixed(0)}K`} axisLine={false} tickLine={false} />
             <Tooltip formatter={(val) => `₺${val.toLocaleString("tr-TR")}`} />
             <Legend iconType="circle" />
-            <Line type="monotone" dataKey="harcama" name="Harcama" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: "#1a1a2e" }} activeDot={{ r: 6 }} />
-            <Line type="monotone" dataKey="gelir" name="Gelir" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: "#1a1a2e" }} activeDot={{ r: 6 }} />
+            <Line type="monotone" dataKey="harcama" name="Harcama" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: "var(--bg-secondary)" }} activeDot={{ r: 6 }} />
+            <Line type="monotone" dataKey="gelir" name="Gelir" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: "var(--bg-secondary)" }} activeDot={{ r: 6 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>

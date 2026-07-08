@@ -190,8 +190,8 @@ function Yatirimlar() {
               {s.label}
               <span style={{
                 marginLeft: "6px", fontSize: "11px", fontWeight: "700",
-                background: aktifSekme === s.id ? "var(--accent-primary)" : "#e2e8f0",
-                color: aktifSekme === s.id ? "white" : "var(--text-muted)",
+                background: aktifSekme === s.id ? "var(--accent-primary)" : "var(--bg-tertiary)",
+                color: aktifSekme === s.id ? "#12161C" : "var(--text-muted)",
                 padding: "1px 6px", borderRadius: "10px"
               }}>{sayi}</span>
             </button>
