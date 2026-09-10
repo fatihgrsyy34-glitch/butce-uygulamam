@@ -1,0 +1,15 @@
+# backend/.gitignore ve frontend/.gitignore kendi dizinlerini zaten kapsıyor.
+# Bu dosya yalnızca onlarda olmayan, kök seviyedeki boşlukları kapatır.
+
+# Kök ve frontend .env dosyaları (frontend/.gitignore .env'i kapsamıyor)
+.env
+.env.*
+!.env.example
+
+# Deploy
+.vercel/
+
+# Editör / OS
+.DS_Store
+Thumbs.db
+*.log

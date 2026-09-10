@@ -1,59 +1,109 @@
-# 💰 Bütçem - Modern Finans ve Bütçe Takip Uygulaması
+# 💰 Bütçem
 
-Bu proje, kişisel finans yönetimini kolaylaştıran, gelir-gider takibini sağlayan ve **Yapay Zeka (AI)** destekli veri analizi sunan modern bir web uygulamasıdır. Güncel fintech (finansal teknoloji) trendlerine uygun, "Clean Light Theme" odaklı kurumsal bir arayüze sahiptir.
+Kişisel finans ve bütçe takip uygulaması. Gelir-gider takibi, kredi kartı yönetimi, birikim hedefleri, yatırım takibi ve Google Gemini destekli ekstre okuma / finansal sohbet.
 
-## ✨ Öne Çıkan Özellikler
+React (Vite) arayüz + Express API, veritabanı olarak Turso.
 
-- **🔒 Güvenli Kimlik Doğrulama:** JWT (JSON Web Token) ve paralo şifreleme (Bcrypt) yapısıyla güvenli kullanıcı girişi ve kayıt işlemleri. Her kullanıcı sadece kendi verisini görür.
-- **📊 Modern Dashboard (Özet Ekranı):** Mevcut bakiyeyi, toplam kazancı, geçen ayın harcamalarını ve finansal "Sağlık Skoru"nu bir bakışta gösteren ana panel.
-- **💸 Gelir ve Gider Yönetimi:** İşlemleri detaylı şekilde (kategori, tarih, kart seçimi vb.) ekleme, listeleme ve silme imkanı. Renk kodlamalı kategori yapısı (Örn: Market için 🛒, Yemek için 🍔).
-- **📉 Grafiksel Analizler (Recharts):** Aylık bazlı harcama ve gelirleri kıyaslayan gelişmiş, etkileşimli sütun/pasta grafikleri.
-- **🤖 AI Asistan (Google Gemini Destekli):** Sisteme PDF formatında ekstre yüklenebilmesi ve yapay zekanın bu ekstreyi okuyarak otomatik kategorize edilmiş harcamalara dönüştürmesi. Ayrıca chat ekranında kişisel bütçe tavsiyesi verebilmesi.
-- **💡 Akıllı Para Dağılımı:** Belirli bir gelir miktarının, kullanıcının belirlediği "Kural Profillerine" (Örn: %50 İhtiyaç, %30 İstek, %20 Birikim) göre otomatik dağıtılması.
+## Özellikler
 
-## 🛠️ Kullanılan Teknolojiler
+- **Kimlik doğrulama** — JWT + bcrypt. Her kullanıcı yalnızca kendi verisini görür; tüm sorgular `kullanici_id` ile filtrelenir.
+- **Dashboard** — bakiye, toplam gelir, geçen ayın harcamaları ve finansal sağlık skoru tek ekranda.
+- **Gelir / gider yönetimi** — kategori, tarih ve kart bazlı kayıt, listeleme, silme. Renk kodlu kategoriler (`frontend/src/utils/categories.js`).
+- **Kredi kartı takibi** — kart limiti, son ödeme günü, banka ve kart bazlı harcama dağılımı.
+- **Grafikler** — Recharts ile aylık gelir/gider karşılaştırmaları, kategori dağılımı.
+- **Hedefler** — birikim hedefi tanımlama ve ilerleme takibi.
+- **Yatırımlar** — yatırım kalemleri ve yatırım dışı ayrımı.
+- **Akıllı para dağılımı** — gelirin, tanımlanan kural profillerine göre (örn. %50 ihtiyaç / %30 istek / %20 birikim) otomatik dağıtılması.
+- **AI ekstre okuma** — PDF ekstre yüklenir, Gemini okuyup kategorize edilmiş harcamalara çevirir.
+- **AI sohbet** — kişisel bütçe üzerine soru-cevap.
 
-**Frontend (Kullanıcı Arayüzü):**
-- **React.js (Vite):** Hızlı ve modern arayüz geliştirme kütüphanesi.
-- **Recharts:** Veri görselleştirme ve grafikler.
-- **Vanilla CSS (Design System):** Tailwind vb. yerine, doğrudan css değişkenleri ile oluşturulmuş, yüksek performanslı ve ferah "Light Theme" özel tasarım sistemi. Glassmorphism ve dinamik Particle Background (sadece AI sekmesinde) mevcuttur.
+## Teknolojiler
 
-**Backend (Sunucu):**
-- **Node.js & Express.js:** Hızlı, asenkron ve esnek RESTful API altyapısı.
-- **SQLite:** Kurulum gerektirmeyen, dosya tabanlı (file-based) ilişkisel veritabanı. Projenin tek bir tıkla her makinede çalışmasını sağlar (`database.db`).
-- **Axios:** Frontend-Backend arası veri haberleşmesi.
-- **Multer:** Ekstre (PDF) dosyası yükleme işlemleri.
+**Frontend:** React 19, Vite 7, Recharts, Axios. Stil için vanilla CSS design system (CSS değişkenleriyle kurulmuş "Ink & Brass" teması) — utility framework kullanılmıyor.
 
-**Yapay Zeka (AI):**
-- **Google Generative AI (Gemini):** Metin tabanlı komutları anlama, finansal veriyi analiz edip JSON'a çevirme işlevleri.
+**Backend:** Node.js, Express 5, JWT (`jsonwebtoken`), bcrypt (`bcryptjs`), Multer (PDF yükleme).
 
-## 🚀 Yerel Geliştirme Ortamı (Local Setup)
+**Veritabanı:** [Turso](https://turso.tech) — `@libsql/client` ile uzak libSQL bağlantısı.
 
-Projeyi kendi bilgisayarınızda (localhost) çalıştırmak için aşağıdaki adımları izleyin:
+**AI:** Google Generative AI (Gemini).
 
-1. **Gereksinimler:** Bilgisayarınızda `Node.js` yüklü olmalıdır.
-2. **Klonlama:** Proje klasörünü kendi ortamınıza indirin.
-3. **Backend'i Başlatma:**
-   ```bash
-   cd backend
-   npm install
-   node server.js
-   ```
-4. **Frontend'i Başlatma (Farklı bir pencerede):**
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-5. Tarayıcınızda `http://localhost:5173` adresine giderek uygulamaya girebilirsiniz.
+## Kurulum
 
-## 🌐 Canlıya Alma (Deployment)
+**Gereksinim:** Node.js. Ayrıca bir Turso veritabanı ve bir Gemini API anahtarı.
 
-Projenin internet ortamında herkesin erişebileceği (URL üzerinden girilebilen) şekilde çalışması için Frontend ve Backend yapısı modern barındırma sistemlerinde barındırılmaktadır:
-- **Veritabanı ve API (Backend):** SQLite kullanıldığı için disk esnekliği ve 7/24 stabilite gereksinimi nedeniyle **Render.com** üzerinden (`Web Service` modülünde) yayınlanmaktadır. Ortam değişkenlerinden bağımsız ve güvenlidir.
-- **Tasarım ve Arayüz (Frontend):** Vercel mimarisine (`Vercel.com`) doğrudan entegre edilmiştir. Kullanıcı Vercel URL'si üzerinden bağlandığında Vite ile pre-render edilmiş arayüz ile karşılaşır. 
+### 1. Ortam değişkenleri
 
-*Not: Vercel üzerinde Frontend deploy edilirken `VITE_API_URL` environment (ortam) değişkenine, projenin canlı Render sunucusundaki Base URL'i atanmıştır. Bu sayede local vs prod (canlı) ortam yönlendirmeleri tam otomatik olarak gerçekleşmektedir.*
+`backend/.env` dosyası oluştur:
 
----
-*Bu proje, modern web geliştirme süreçlerini (tasarım sistemi oluşturma, component yapısı) ve yapay zeka entegrasyonlarını (Google Gemini LLM) birlikte harmanlayan kapsamlı bir bitirme / startup vizyon projesidir.*
+```env
+TURSO_DATABASE_URL=libsql://...
+TURSO_AUTH_TOKEN=...
+GEMINI_API_KEY=...
+JWT_SECRET=uzun-rastgele-bir-deger
+COLLECT_API_KEY=...
+# PORT=3001
+```
+
+`TURSO_DATABASE_URL` ve `TURSO_AUTH_TOKEN` zorunludur — onlar olmadan backend başlamaz. `JWT_SECRET` verilmezse koddaki sabit varsayılana düşer, bu yüzden üretimde mutlaka tanımla. `GEMINI_API_KEY` yoksa yalnızca AI özellikleri devre dışı kalır, `COLLECT_API_KEY` yoksa kur/döviz uçları çalışmaz.
+
+### 2. Backend
+
+```bash
+cd backend
+npm install
+node server.js
+```
+
+`http://localhost:3001` üzerinde çalışır. Veritabanı şeması ilk açılışta otomatik kurulur (`CREATE TABLE IF NOT EXISTS`), ayrı bir migration adımı gerekmez.
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+`http://localhost:5173` üzerinde açılır ve API'ye `http://localhost:3001/api` adresinden gider. Backend farklı bir adreste çalışıyorsa `VITE_API_URL` ile belirt.
+
+## Komutlar
+
+| Komut | Dizin | Açıklama |
+|---|---|---|
+| `node server.js` | `backend` | API sunucusunu başlatır |
+| `node migrate.js` | `backend` | Eski yerel `butce.db`'yi Turso'ya taşır — **tek seferlik**, normal geliştirmede kullanılmaz |
+| `npm run dev` | `frontend` | Vite geliştirme sunucusu |
+| `npm run build` | `frontend` | Üretim derlemesi (`dist/`) |
+| `npm run preview` | `frontend` | Derlemeyi yerel olarak sunar |
+| `npm run lint` | `frontend` | ESLint |
+
+Projede otomatik test bulunmuyor; değişiklikler uygulamayı çalıştırarak doğrulanır.
+
+## Proje yapısı
+
+```
+backend/
+  server.js      Express uygulaması — ~33 API ucu, JWT auth, Gemini, PDF yükleme
+  database.js    Turso bağlantısı ve şema tanımları
+  migrate.js     tek seferlik taşıma script'i
+frontend/src/
+  pages/         Dashboard, Gelirler, Harcamalar, Kartlar, KrediKartTakip,
+                 Grafikler, Hedefler, Yatirimlar, Dagilim, AiSohbet,
+                 EkstreYukle, Login
+  services/api.js       tüm HTTP çağrıları
+  utils/categories.js   kategori tanımları ve renkleri
+  components/           ParticleBackground (AI sekmesinde)
+  index.css, App.css    design system
+```
+
+### Veritabanı tabloları
+
+`kullanicilar`, `gelirler`, `harcamalar`, `kartlar`, `yatirimlar`, `hedefler`, `kurallar`, `ekstreler` — tablo ve alan adları Türkçedir.
+
+## Deploy
+
+Frontend Vercel üzerinde yayınlanır ve `main` branch'ine bağlıdır: `main`'e giden her push canlıya çıkar. Geliştirme için ayrı branch açıp push etmek Vercel'de preview deploy üretir.
+
+## Katkı
+
+Ayrıntılı geliştirme kuralları ve mimari notlar için [`CLAUDE.md`](./CLAUDE.md) dosyasına bakın.
