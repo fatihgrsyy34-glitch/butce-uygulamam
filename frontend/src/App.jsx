@@ -1,20 +1,34 @@
-import { useState, useEffect } from "react";
-import Dashboard from "./pages/Dashboard";
-import Gelirler from "./pages/Gelirler";
-import Harcamalar from "./pages/Harcamalar";
-import Kartlar from "./pages/Kartlar";
-import Yatirimlar from "./pages/Yatirimlar";
-import Hedefler from "./pages/Hedefler";
-import EkstreYukle from "./pages/EkstreYukle";
-import KrediKartTakip from "./pages/KrediKartTakip";
-import AiSohbet from "./pages/AiSohbet";
-import Dagilim from "./pages/Dagilim";
-import Grafikler from "./pages/Grafikler";
-import Login from "./pages/Login";
+import { useState, useEffect, lazy, Suspense } from "react";
+// Sayfalar tembel yükleniyor: recharts tek başına paketin büyük kısmıydı ve
+// yalnızca Grafikler ile Para Dağılımı'nda kullanılıyor. Böylece ilk açılışta
+// sadece görüntülenen sayfanın kodu iniyor — telefonda mobil veriyle fark ediyor.
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Gelirler = lazy(() => import("./pages/Gelirler"));
+const Harcamalar = lazy(() => import("./pages/Harcamalar"));
+const Kartlar = lazy(() => import("./pages/Kartlar"));
+const Yatirimlar = lazy(() => import("./pages/Yatirimlar"));
+const Hedefler = lazy(() => import("./pages/Hedefler"));
+const EkstreYukle = lazy(() => import("./pages/EkstreYukle"));
+const KrediKartTakip = lazy(() => import("./pages/KrediKartTakip"));
+const AiSohbet = lazy(() => import("./pages/AiSohbet"));
+const Dagilim = lazy(() => import("./pages/Dagilim"));
+const Grafikler = lazy(() => import("./pages/Grafikler"));
+const Login = lazy(() => import("./pages/Login"));
 import MobileNav from "./components/MobileNav";
 import { ICONS, EK_ICONS, MENU_ITEMS } from "./utils/menu";
 import { authAPI } from "./services/api";
 import "./App.css";
+
+function TamEkranYukleniyor() {
+  return (
+    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "var(--font-family)" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontFamily: "var(--font-serif)", fontSize: "34px", fontWeight: 700, color: "var(--accent-primary)" }}>Bütçem</div>
+        <div style={{ opacity: 0.5, marginTop: 8, fontSize: 13 }}>Yükleniyor…</div>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   const [aktifSayfa, setAktifSayfa] = useState("dashboard");
@@ -48,19 +62,14 @@ function App() {
     setMobilSayfaAcik(false);
   };
 
-  if (yukleniyor) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "var(--font-family)" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: "var(--font-serif)", fontSize: "34px", fontWeight: 700, color: "var(--accent-primary)" }}>Bütçem</div>
-          <div style={{ opacity: 0.5, marginTop: 8, fontSize: 13 }}>Yükleniyor…</div>
-        </div>
-      </div>
-    );
-  }
+  if (yukleniyor) return <TamEkranYukleniyor />;
 
   if (!kullanici) {
-    return <Login onLogin={(k) => setKullanici(k)} />;
+    return (
+      <Suspense fallback={<TamEkranYukleniyor />}>
+        <Login onLogin={(k) => setKullanici(k)} />
+      </Suspense>
+    );
   }
 
   const renderPage = () => {
@@ -141,7 +150,11 @@ function App() {
       />
 
       <main className="main-content" key={aktifSayfa}>
-        {renderPage()}
+        {/* Sayfa parçası inerken içerik alanında hafif bir gösterge kalsın;
+            kabuk (üst çubuk / sekmeler) yerinde durduğu için sıçrama olmuyor. */}
+        <Suspense fallback={<div className="empty-state">Yükleniyor…</div>}>
+          {renderPage()}
+        </Suspense>
       </main>
     </div>
   );

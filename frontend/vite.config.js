@@ -4,6 +4,21 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        // React ve grafik kütüphanesi ayrı parçalarda: ikisi de nadiren
+        // değiştiği için uygulama kodu güncellendiğinde tarayıcı önbelleğinde
+        // kalabiliyorlar. Grafik parçası yalnızca Grafikler / Para Dağılımı
+        // açıldığında iniyor.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "react-vendor";
+          if (/node_modules\/(recharts|d3-[a-z]+|react-smooth|victory-vendor)\//.test(id)) return "grafik-vendor";
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
