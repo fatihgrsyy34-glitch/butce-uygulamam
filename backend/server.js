@@ -10,7 +10,17 @@ const rateLimit = require("express-rate-limit");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { db, dbReady } = require("./database");
 
-const upload = multer({ dest: "uploads/" });
+// Yüklenen dosya belleğe okunup base64'e çevriliyor (1.33x şişer) ve Render
+// bedava katmanında 512MB RAM var — sınırsız yükleme sunucuyu düşürebilir.
+// Ayrıca PDF olmayan dosyayı Gemini'ye göndermek boşa kota harcar.
+const upload = multer({
+  dest: "uploads/",
+  limits: { fileSize: 15 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === "application/pdf") return cb(null, true);
+    cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "pdf"));
+  },
+});
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // JWT_SECRET verilmezse eskiden kodda yazılı sabit bir değere düşüyordu;
 // repo herkese açık olduğu için o secret'la herkes kendine token üretip
@@ -566,6 +576,18 @@ app.get("/api/fiyatlar", authMiddleware, async (_req, res) => {
   } catch (err) {
     res.status(500).json({ hata: err.message });
   }
+});
+
+// Multer hataları (boyut aşımı, yanlış tür) yakalanmazsa Express varsayılan
+// HTML hata sayfasıyla 500 döner; istemci bunu okuyamaz.
+app.use((err, _req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    const mesaj = err.code === "LIMIT_FILE_SIZE"
+      ? "Dosya çok büyük (en fazla 15 MB)."
+      : "Yalnızca PDF dosyası yüklenebilir.";
+    return res.status(400).json({ hata: mesaj });
+  }
+  next(err);
 });
 
 // ==================== SAĞLIK ====================
