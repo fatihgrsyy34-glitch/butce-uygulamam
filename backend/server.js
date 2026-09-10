@@ -505,6 +505,14 @@ app.get("/api/fiyatlar", authMiddleware, async (_req, res) => {
   }
 });
 
+// ==================== SAĞLIK ====================
+// Render bedava katmanı 15 dk boşta kalırsa uyur, uyanması ~22 sn sürer.
+// keep-alive.yml bu ucu düzenli çağırıp sunucuyu ayakta tutar.
+// Bilinçli olarak auth'suz ve veritabanına dokunmuyor — ucuz kalmalı.
+app.get("/api/health", (_req, res) => {
+  res.json({ durum: "ayakta", zaman: new Date().toISOString() });
+});
+
 // ==================== SUNUCU ====================
 dbReady.then(() => {
   app.listen(PORT, () => {
