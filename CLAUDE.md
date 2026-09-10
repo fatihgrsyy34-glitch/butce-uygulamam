@@ -46,6 +46,14 @@ Vanilla CSS design system — `frontend/src/index.css` ve `App.css`, CSS değiş
 
 `tailwindcss` ve `@tailwindcss/vite` kurulu ve `vite.config.js`'e bağlı, **ama hiç kullanılmıyor** (kodda tek `@tailwind` direktifi veya utility sınıfı yok). Yeni kodda Tailwind sınıfı kullanma, mevcut CSS değişkenlerini kullan.
 
+## Bloke eden komutlar — çalıştırma
+
+`npm run dev`, `node server.js`, `npm run preview` gibi sunucular **hiç bitmez**. Bunları normal bir komut olarak çalıştırırsan oturum sonsuza kadar bekler ve hiçbir cevap üretemez.
+
+- Sunucuyu ayağa kaldırman gerekiyorsa arka planda başlat, ya da hiç başlatma
+- Değişikliği doğrulamak için sunucuya ihtiyaç varsa kullanıcıya söyle, o başlatsın
+- `npm install`, `npm run build`, `npm run lint`, `git` komutları biter — bunlar sorunsuz
+
 ## Git kuralları
 
 - Remote: `github.com/fatihgrsyy34-glitch/butce-uygulamam`
