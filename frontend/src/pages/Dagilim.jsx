@@ -233,6 +233,7 @@ function Dagilim() {
                       <div className="flex items-center gap-sm">
                         <input
                           type="number"
+                          inputMode="decimal"
                           value={k.yuzde}
                           onChange={(e) => handleYuzdeGuncelle(i, e.target.value)}
                           onFocus={(e) => e.target.select()}
@@ -291,6 +292,7 @@ function Dagilim() {
           <div className="input-group mb-md">
             <input
               type="number"
+              inputMode="decimal" step="0.01"
               placeholder="Tutar girin (₺)"
               value={manuelGelir}
               onChange={(e) => setManuelGelir(e.target.value)}

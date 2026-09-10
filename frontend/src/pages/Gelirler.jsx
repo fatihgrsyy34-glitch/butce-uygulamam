@@ -120,6 +120,7 @@ function Gelirler() {
           />
           <input
             type="number"
+            inputMode="decimal" step="0.01"
             placeholder="Miktar (₺)"
             value={form.miktar}
             onChange={(e) => setForm({ ...form, miktar: e.target.value })}

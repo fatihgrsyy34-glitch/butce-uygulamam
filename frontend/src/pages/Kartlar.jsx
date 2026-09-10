@@ -72,6 +72,7 @@ function Kartlar() {
           />
           <input
             type="number"
+            inputMode="decimal" step="0.01"
             placeholder="Limit (₺)"
             value={form.limit_miktar}
             onChange={(e) => setForm({ ...form, limit_miktar: e.target.value })}
@@ -80,6 +81,7 @@ function Kartlar() {
           />
           <input
             type="number"
+            inputMode="numeric"
             placeholder="Son Ödeme Günü"
             value={form.son_odeme_gunu}
             onChange={(e) => setForm({ ...form, son_odeme_gunu: e.target.value })}

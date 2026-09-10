@@ -123,6 +123,7 @@ function Yatirimlar() {
           </select>
           <input
             type="number"
+            inputMode="decimal" step="0.01"
             placeholder="Miktar (adet/gram)"
             value={form.miktar}
             onChange={(e) => setForm({ ...form, miktar: e.target.value })}
@@ -131,6 +132,7 @@ function Yatirimlar() {
           />
           <input
             type="number"
+            inputMode="decimal" step="0.01"
             placeholder="Alış Fiyatı (₺)"
             value={form.alis_fiyati}
             onChange={(e) => setForm({ ...form, alis_fiyati: e.target.value })}

@@ -54,6 +54,7 @@ function Hedefler() {
           />
           <input
             type="number"
+            inputMode="decimal" step="0.01"
             placeholder="Hedef Miktar (₺)"
             value={form.hedef_miktar}
             onChange={(e) => setForm({ ...form, hedef_miktar: e.target.value })}
@@ -62,6 +63,7 @@ function Hedefler() {
           />
           <input
             type="number"
+            inputMode="decimal" step="0.01"
             placeholder="Mevcut Birikim (₺)"
             value={form.mevcut_miktar}
             onChange={(e) => setForm({ ...form, mevcut_miktar: e.target.value })}

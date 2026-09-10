@@ -257,12 +257,12 @@ function KrediKartTakip() {
                         <select value={duzenAy} onChange={(e) => setDuzenAy(e.target.value)} className="input" style={{ width: "auto" }}>
                           {AY_ISIMLERI.map((ay) => <option key={ay} value={ay}>{ay}</option>)}
                         </select>
-                        <input type="number" value={duzenYil} onChange={(e) => setDuzenYil(e.target.value)} className="input" style={{ width: "90px" }} />
+                        <input type="number" inputMode="numeric" value={duzenYil} onChange={(e) => setDuzenYil(e.target.value)} className="input" style={{ width: "90px" }} />
                       </div>
                     </div>
                     <div>
                       <label className="form-label" style={{ fontSize: "12px" }}>Toplam Tutar (₺)</label>
-                      <input type="number" step="0.01" value={duzenTutar} onChange={(e) => setDuzenTutar(e.target.value)} className="input" style={{ width: "160px" }} />
+                      <input type="number" inputMode="decimal" step="0.01" value={duzenTutar} onChange={(e) => setDuzenTutar(e.target.value)} className="input" style={{ width: "160px" }} />
                     </div>
                     <div className="flex gap-sm" style={{ alignSelf: "flex-end" }}>
                       <button onClick={() => duzenKaydet(ekstre.id)} className="btn btn-sm" style={{ background: "var(--accent-gradient)", color: "#12161C" }}>💾 Kaydet</button>
