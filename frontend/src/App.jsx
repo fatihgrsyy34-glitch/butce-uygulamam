@@ -11,47 +11,18 @@ import AiSohbet from "./pages/AiSohbet";
 import Dagilim from "./pages/Dagilim";
 import Grafikler from "./pages/Grafikler";
 import Login from "./pages/Login";
+import MobileNav from "./components/MobileNav";
+import { ICONS, EK_ICONS, MENU_ITEMS } from "./utils/menu";
 import { authAPI } from "./services/api";
 import "./App.css";
-
-const I = (p) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
-    strokeLinecap="round" strokeLinejoin="round" width="18" height="18">{p}</svg>
-);
-
-const ICONS = {
-  dashboard: I(<><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>),
-  ekstre: I(<><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M12 18v-6m0 0-2.2 2.2M12 12l2.2 2.2" /></>),
-  gelirler: I(<><path d="M4 17 10 11l4 4 6-7" /><path d="M20 8v4m0-4h-4" /></>),
-  harcamalar: I(<><path d="M4 7 10 13l4-4 6 7" /><path d="M20 16v-4m0 4h-4" /></>),
-  kartlar: I(<><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="M3 10h18M7 15h4" /></>),
-  "kart-takip": I(<><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></>),
-  yatirimlar: I(<><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>),
-  hedefler: I(<><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="4" /><circle cx="12" cy="12" r=".6" fill="currentColor" /></>),
-  dagilim: I(<><path d="M12 3a9 9 0 1 0 9 9h-9z" /><path d="M12 3v9h9A9 9 0 0 0 12 3z" opacity=".5" /></>),
-  grafikler: I(<><path d="M4 19V5M4 19h16" /><path d="m7 15 4-4 3 3 5-6" /></>),
-  ai: I(<><path d="M12 3v3M6 8h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" /><circle cx="9" cy="13" r="1.1" fill="currentColor" /><circle cx="15" cy="13" r="1.1" fill="currentColor" /></>),
-};
-
-const MENU_ITEMS = [
-  { id: "dashboard", label: "Genel Bakış" },
-  { id: "ekstre", label: "Ekstre Yükle" },
-  { id: "gelirler", label: "Gelirler" },
-  { id: "harcamalar", label: "Harcamalar" },
-  { id: "kartlar", label: "Kartlar" },
-  { id: "kart-takip", label: "Kredi Kart Takip" },
-  { id: "yatirimlar", label: "Yatırımlar" },
-  { id: "hedefler", label: "Hedefler" },
-  { id: "dagilim", label: "Para Dağılımı" },
-  { id: "grafikler", label: "Grafikler" },
-  { id: "ai", label: "AI Asistan" },
-];
 
 function App() {
   const [aktifSayfa, setAktifSayfa] = useState("dashboard");
   const [kullanici, setKullanici] = useState(null);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [tema, setTema] = useState(() => localStorage.getItem("tema") || "dark");
+  // Mobilde "Daha fazla" alt sayfasının açık/kapalı durumu
+  const [mobilSayfaAcik, setMobilSayfaAcik] = useState(false);
 
   useEffect(() => {
     document.documentElement.dataset.theme = tema;
@@ -74,6 +45,7 @@ function App() {
   const cikisYap = () => {
     localStorage.removeItem("token");
     setKullanici(null);
+    setMobilSayfaAcik(false);
   };
 
   if (yukleniyor) {
@@ -112,6 +84,7 @@ function App() {
 
   return (
     <div className="app-layout">
+      {/* Masaüstü sidebar'ı — mobilde CSS ile gizlenir (styles/mobile.css) */}
       <aside className="sidebar">
         <div className="sidebar-logo">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" width="22" height="22" style={{ color: "var(--accent-primary)" }}>
@@ -137,9 +110,7 @@ function App() {
 
         <button onClick={() => setTema(tema === "dark" ? "light" : "dark")} className="theme-toggle">
           <span className="nav-icon" style={{ display: "inline-flex" }}>
-            {tema === "dark"
-              ? I(<><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>)
-              : I(<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />)}
+            {tema === "dark" ? EK_ICONS.gunes : EK_ICONS.ay}
           </span>
           <span>{tema === "dark" ? "Açık tema" : "Koyu tema"}</span>
         </button>
@@ -152,10 +123,22 @@ function App() {
         </div>
 
         <button onClick={cikisYap} className="logout-btn">
-          {I(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>)}
+          {EK_ICONS.cikis}
           <span>Çıkış Yap</span>
         </button>
       </aside>
+
+      {/* Mobil kabuk — masaüstünde CSS ile gizlenir */}
+      <MobileNav
+        aktifSayfa={aktifSayfa}
+        setAktifSayfa={setAktifSayfa}
+        tema={tema}
+        setTema={setTema}
+        cikisYap={cikisYap}
+        kullanici={kullanici}
+        sayfaAcik={mobilSayfaAcik}
+        setSayfaAcik={setMobilSayfaAcik}
+      />
 
       <main className="main-content" key={aktifSayfa}>
         {renderPage()}

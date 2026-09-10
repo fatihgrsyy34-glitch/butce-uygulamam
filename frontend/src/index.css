@@ -327,13 +327,10 @@ select.input { cursor:pointer; }
   *, *::before, *::after { animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
 }
 
-/* ===== Responsive ===== */
-@media (max-width: 860px) {
-  .sidebar { width:64px; padding:var(--space-sm) 8px; }
-  .sidebar-logo span:not(.nav-icon), .sidebar-user, .nav-btn span:not(.nav-icon), .logout-btn span, .theme-toggle span { display:none; }
-  .nav-btn { justify-content:center; }
-  .main-content { margin-left:64px; padding:var(--space-md); }
-}
+/* ===== Responsive =====
+   Dar ekran düzeni styles/mobile.css içinde: sidebar tamamen gizlenip
+   yerine üst çubuk + alt sekme çubuğu geliyor. Eskiden burada sidebar
+   64px'lik bir ikon rayına küçülüyordu; telefonda dokunmak için sıkışıktı. */
 
 /* ===== Utilities ===== */
 .flex { display:flex; }

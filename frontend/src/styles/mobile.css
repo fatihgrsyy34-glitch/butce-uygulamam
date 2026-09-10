@@ -1,0 +1,288 @@
+/* ===========================================
+   BÜTÇEM — Mobil katman
+   Masaüstü düzeni (>860px) bilerek dokunulmadan bırakıldı; buradaki
+   her şey yalnızca dar ekranlarda devreye girer. Mobil kabuk (üst çubuk,
+   alt sekme çubuğu, "Daha fazla" sayfası) geniş ekranlarda gizli durur.
+   =========================================== */
+
+:root {
+  --mobil-ust-h: 52px;
+  --mobil-alt-h: 58px;
+  /* viewport-fit=cover olmadan bu değerler 0 döner (index.html'de ayarlı) */
+  --guvenli-ust: env(safe-area-inset-top, 0px);
+  --guvenli-alt: env(safe-area-inset-bottom, 0px);
+  --guvenli-sol: env(safe-area-inset-left, 0px);
+  --guvenli-sag: env(safe-area-inset-right, 0px);
+}
+
+/* Mobil kabuk masaüstünde yok */
+.mobil-ust-cubuk,
+.mobil-sekme-cubugu,
+.mobil-perde,
+.mobil-sayfa {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  /* ===== Kabuk ===== */
+  /* Sidebar tamamen kalkıyor; yerini üst çubuk + alt sekme çubuğu alıyor.
+     Eskiden burada sidebar 64px'lik ikon rayına küçülüyordu ama telefonda
+     dokunmak için fazla sıkışıktı. */
+  .sidebar { display: none; }
+
+  .main-content {
+    margin-left: 0;
+    padding: calc(var(--mobil-ust-h) + var(--guvenli-ust) + var(--space-md))
+             max(var(--space-md), var(--guvenli-sag))
+             calc(var(--mobil-alt-h) + var(--guvenli-alt) + var(--space-lg))
+             max(var(--space-md), var(--guvenli-sol));
+    min-height: 100dvh;
+  }
+
+  /* ===== Üst çubuk ===== */
+  .mobil-ust-cubuk {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 200;
+    height: calc(var(--mobil-ust-h) + var(--guvenli-ust));
+    padding: var(--guvenli-ust) max(14px, var(--guvenli-sag)) 0 max(14px, var(--guvenli-sol));
+    background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--bg-card-border);
+  }
+  .mobil-marka {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-serif);
+    font-size: 20px; font-weight: 700; letter-spacing: -0.3px;
+    color: var(--accent-primary);
+  }
+  .mobil-marka span {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .mobil-ikon-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; flex: none;
+    background: transparent; border: 1px solid var(--bg-card-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted); cursor: pointer;
+  }
+  .mobil-ikon-btn:active { background: var(--bg-tertiary); }
+
+  /* ===== Alt sekme çubuğu ===== */
+  .mobil-sekme-cubugu {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    /* Alt sayfanın (310) ve perdenin (300) da üstünde: sayfa açıkken
+       "Daha fazla" düğmesi X'e dönüşüyor, dokunulabilir kalmalı. */
+    z-index: 320;
+    padding: 0 max(4px, var(--guvenli-sag)) var(--guvenli-alt) max(4px, var(--guvenli-sol));
+    background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--bg-card-border);
+  }
+  .mobil-sekme {
+    flex: 1 1 0;
+    /* iOS'ta rahat dokunma için 44px'lik hedefin altına düşmüyoruz */
+    min-height: var(--mobil-alt-h);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px;
+    padding: 7px 2px;
+    background: transparent; border: none; cursor: pointer;
+    color: var(--text-faint);
+    font-family: var(--font-family);
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--transition-fast);
+  }
+  .mobil-sekme-ikon { display: inline-flex; }
+  .mobil-sekme-ikon svg { width: 21px; height: 21px; }
+  .mobil-sekme-etiket {
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+  .mobil-sekme.active { color: var(--accent-primary); }
+  .mobil-sekme:active { opacity: 0.6; }
+
+  /* ===== "Daha fazla" alt sayfası ===== */
+  .mobil-perde {
+    display: block;
+    position: fixed; inset: 0; z-index: 300;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0; pointer-events: none;
+    transition: opacity var(--transition-normal);
+  }
+  .mobil-perde.acik { opacity: 1; pointer-events: auto; }
+
+  .mobil-sayfa {
+    display: block;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 310;
+    max-height: 82dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px max(var(--space-md), var(--guvenli-sag))
+             calc(var(--mobil-alt-h) + var(--guvenli-alt) + var(--space-md))
+             max(var(--space-md), var(--guvenli-sol));
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--bg-card-border);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35);
+    transform: translateY(100%);
+    transition: transform var(--transition-normal);
+  }
+  .mobil-sayfa.acik { transform: translateY(0); }
+
+  .mobil-sayfa-tutamac {
+    width: 38px; height: 4px; border-radius: 3px;
+    background: var(--bg-card-border-hover);
+    margin: 0 auto var(--space-md);
+  }
+  .mobil-sayfa-kullanici {
+    display: flex; align-items: center; gap: 11px;
+    padding-bottom: var(--space-md);
+    margin-bottom: var(--space-md);
+    border-bottom: 1px solid var(--bg-card-border);
+  }
+  .mobil-avatar {
+    width: 38px; height: 38px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent-soft); color: var(--accent-primary);
+    font-family: var(--font-serif); font-weight: 700; font-size: 16px;
+  }
+  .mobil-kullanici-isim {
+    font-size: 14px; font-weight: 600; color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mobil-kullanici-alt {
+    font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .mobil-sayfa-izgara {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-sm);
+  }
+  .mobil-sayfa-btn {
+    display: flex; align-items: center; gap: 10px;
+    min-height: 48px;
+    padding: 11px 13px;
+    background: var(--bg-tertiary);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-family: var(--font-family); font-size: 13.5px; font-weight: 500;
+    text-align: left; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobil-sayfa-btn.active {
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+    background: var(--accent-soft);
+  }
+  .mobil-sayfa-btn:active { opacity: 0.65; }
+  .mobil-sayfa-ikon { display: inline-flex; flex: none; color: var(--accent-primary); }
+
+  .mobil-cikis-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; min-height: 46px;
+    margin-top: var(--space-md);
+    background: transparent;
+    border: 1px solid var(--bg-card-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: var(--font-family); font-size: 13.5px; font-weight: 500;
+    cursor: pointer;
+  }
+  .mobil-cikis-btn:active { background: var(--bg-tertiary); }
+
+  /* ===== Sayfa içeriği uyarlamaları ===== */
+  .page-title { font-size: 23px; }
+  .page-subtitle { font-size: 13px; }
+  .page-header { margin-bottom: var(--space-md); }
+
+  .card { padding: var(--space-md); border-radius: var(--radius-md); }
+  .stat-card { padding: var(--space-md); }
+  .stat-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-sm); }
+  .stat-value { font-size: 19px; }
+
+  /* Stat kartlarında rozet, .flex sarmalama kuralı yüzünden alt satıra
+     düşüyordu. :not() ile aynı özgüllükte kaldığı için burada bilerek
+     bir sınıf daha ekleyip sıralamadan bağımsız olarak eziyoruz. */
+  .stat-card .flex:not(.flex-col) { flex-wrap: nowrap; }
+  .stat-card .flex > :first-child { min-width: 0; }
+  .score-circle { width: 40px; height: 40px; font-size: 16px; flex: none; }
+
+  /* Satırlar telefonda yan yana sığmıyor: üst üste yığılıp tam genişliğe yayılır */
+  .list-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+  }
+  .list-item-actions {
+    justify-content: space-between;
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--bg-card-border);
+  }
+
+  /* Yardımcı .flex sınıfı sarmalamıyor. Telefonda ekrandan taşan bir satır
+     tarayıcının düzen alanını genişletiyor (393px → 561px ölçüldü) ve
+     position:fixed olan alt sekme çubuğu ekranın dışına kayıyor — yani tek
+     bir taşan satır tüm gezinmeyi kilitliyor. Dar ekranda satırlar kırılsın.
+     .flex-col hariç: yüksekliği sınırlı kolonlarda (AI sohbeti) wrap içeriği
+     sütunlara böler. */
+  .flex:not(.flex-col) { flex-wrap: wrap; }
+
+  .filter-bar { flex-wrap: wrap; gap: var(--space-sm); }
+  .input-group > * { flex: 1 1 100%; }
+
+  /* iOS, 16px'ten küçük yazılı bir alana odaklanınca sayfayı zorla
+     büyütüyor ve düzen kayıyor. Bu yüzden mobilde taban 16px. */
+  .input, input, select, textarea { font-size: 16px; }
+  .input { padding: 12px 14px; min-height: 46px; }
+
+  /* Dokunma hedefleri en az 44px */
+  .btn { min-height: 44px; padding: 11px 18px; font-size: 14px; }
+  .btn-sm { min-height: 38px; padding: 8px 13px; font-size: 12.5px; }
+
+  .credit-card { width: 100%; }
+  .upload-zone { padding: var(--space-lg) var(--space-md); }
+  .tab-bar { gap: 3px; }
+  .tab-btn { padding: 9px 13px; min-height: 40px; }
+
+  .chat-container {
+    /* dvh: Safari'de araç çubuğu açılıp kapandıkça yükseklik doğru kalsın */
+    height: calc(100dvh - var(--mobil-ust-h) - var(--guvenli-ust)
+                 - var(--mobil-alt-h) - var(--guvenli-alt) - 92px);
+  }
+  .chat-bubble { max-width: 88%; font-size: 14.5px; }
+
+  /* Grafik etiketleri telefonda okunabilir kalsın */
+  .recharts-text { font-size: 11px !important; }
+
+  /* Dokunmatikte :hover tetiklenip yapışıyor; yer değiştiren efektleri
+     mobilde kapatıyoruz (renk/gölge geçişleri kalıyor). */
+  .card:hover,
+  .stat-card:hover,
+  .credit-card:hover {
+    transform: none;
+    box-shadow: var(--shadow-card);
+  }
+}
+
+/* Dar telefonlarda stat kartları iki kolonda ~176px'e sıkışıyor ve tutar
+   sığmıyor. Bir finans uygulamasında rakamı kırpmak kabul edilemez, o yüzden
+   burada tek kolona düşüyoruz: biraz daha kaydırma, tam okunur tutarlar. */
+@media (max-width: 440px) {
+  .stat-grid { grid-template-columns: 1fr; }
+}
