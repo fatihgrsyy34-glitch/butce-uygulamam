@@ -102,6 +102,18 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+// kart_id istemciden geliyor ve sorguya kullanici_id koymak bunu doğrulamıyor:
+// başka birinin kart id'si gönderilirse kayıt o karta bağlanır. Yazma
+// uçlarında kartın gerçekten istek sahibine ait olduğunu burada doğruluyoruz.
+const kartKullaniciyaAitMi = async (kartId, kullaniciId) => {
+  if (kartId === null || kartId === undefined || kartId === "") return true; // nakit/hesaptan
+  const kart = toRow(await db.execute({
+    sql: "SELECT id FROM kartlar WHERE id = ? AND kullanici_id = ?",
+    args: [kartId, kullaniciId],
+  }));
+  return Boolean(kart);
+};
+
 // ==================== AUTH ====================
 // Uygulama internete açık olduğu için kayıt herkese serbest bırakılamaz.
 // KAYIT_KODU tanımlı değilse kayıt tamamen kapalı; tanımlıysa yalnızca
@@ -188,6 +200,9 @@ app.get("/api/harcamalar", authMiddleware, async (req, res) => {
 app.post("/api/harcamalar", authMiddleware, async (req, res) => {
   try {
     const { tarih, miktar, kategori, kart_id, aciklama } = req.body;
+    if (!(await kartKullaniciyaAitMi(kart_id, req.kullanici.id))) {
+      return res.status(403).json({ hata: "Bu kart size ait değil" });
+    }
     const result = await db.execute({ sql: "INSERT INTO harcamalar (tarih, miktar, kategori, kart_id, aciklama, kullanici_id) VALUES (?, ?, ?, ?, ?, ?)", args: [tarih, parseFloat(miktar), kategori, kart_id || null, aciklama || "", req.kullanici.id] });
     res.status(201).json({ id: Number(result.lastInsertRowid) });
   } catch (err) { res.status(500).json({ hata: err.message }); }
@@ -350,7 +365,7 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
     let kategorilerR = await db.execute({
       sql: `SELECT h.kategori, SUM(h.miktar) as toplam
             FROM harcamalar h
-            JOIN ekstreler e ON h.ekstre_id = e.id
+            JOIN ekstreler e ON h.ekstre_id = e.id AND e.kullanici_id = h.kullanici_id
             WHERE h.kullanici_id = ? AND e.donem_yilAy = ?
             GROUP BY h.kategori ORDER BY toplam DESC`,
       args: [uid, gecenAyStr],
@@ -421,6 +436,13 @@ app.post("/api/dagilim-hesapla", authMiddleware, async (req, res) => {
 app.post("/api/ekstre-yukle", authMiddleware, upload.single("pdf"), async (req, res) => {
   if (!req.file) return res.status(400).json({ hata: "PDF dosyası yükleyin" });
   const pdfPath = req.file.path;
+  // Kart sahipliği Gemini çağrısından ÖNCE doğrulanmalı: aksi halde
+  // reddedilecek bir istek için boşuna AI kotası harcanır.
+  if (!(await kartKullaniciyaAitMi(
+    req.body.kart_id ? parseInt(req.body.kart_id) : null, req.kullanici.id))) {
+    fs.unlinkSync(pdfPath);
+    return res.status(403).json({ hata: "Bu kart size ait değil" });
+  }
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const pdfData = fs.readFileSync(pdfPath);
@@ -488,7 +510,7 @@ app.get("/api/ekstreler", authMiddleware, async (req, res) => {
     res.json(toRows(await db.execute({
       sql: `SELECT e.*, k.isim as kart_isim, k.renk as kart_renk, k.banka as kart_banka
             FROM ekstreler e
-            LEFT JOIN kartlar k ON e.kart_id = k.id
+            LEFT JOIN kartlar k ON e.kart_id = k.id AND k.kullanici_id = e.kullanici_id
             WHERE e.kullanici_id = ?
             ORDER BY e.yukleme_tarihi DESC`,
       args: [req.kullanici.id],
