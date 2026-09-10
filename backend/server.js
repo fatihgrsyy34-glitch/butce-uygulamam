@@ -5,12 +5,23 @@ const multer = require("multer");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const rateLimit = require("express-rate-limit");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { db, dbReady } = require("./database");
 
 const upload = multer({ dest: "uploads/" });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const JWT_SECRET = process.env.JWT_SECRET || "butce-app-secret-key";
+// JWT_SECRET verilmezse eskiden kodda yazılı sabit bir değere düşüyordu;
+// repo herkese açık olduğu için o secret'la herkes kendine token üretip
+// başkasının verisini okuyabilirdi. Artık yoksa her açılışta rastgele
+// üretiyoruz: kimse taklit edemez, ama sunucu her yeniden başladığında
+// oturumlar düşer. Kalıcı oturum için JWT_SECRET'i ortama tanımla.
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(48).toString("hex");
+if (!process.env.JWT_SECRET) {
+  console.warn("⚠️  JWT_SECRET tanımlı değil — geçici rastgele secret üretildi. " +
+               "Sunucu her yeniden başladığında herkesin yeniden giriş yapması gerekecek.");
+}
 
 const AY_MAP = { "Ocak":"01","Şubat":"02","Mart":"03","Nisan":"04","Mayıs":"05","Haziran":"06","Temmuz":"07","Ağustos":"08","Eylül":"09","Ekim":"10","Kasım":"11","Aralık":"12" };
 const donemToYilAy = (donemAdi) => {
@@ -25,8 +36,48 @@ const toRow = (r) => r.rows[0] ? Object.fromEntries(r.columns.map((col, i) => [c
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// Render sunucuyu ters vekil arkasında çalıştırıyor; hız sınırının
+// gerçek istemci IP'sini görmesi için gerekli.
+app.set("trust proxy", 1);
+
+// CORS eskiden tüm origin'lere açıktı. Artık yalnızca bu projenin yayındaki
+// adresleri ve yerel geliştirme. Vercel her branch için rastgele alt alan adı
+// üretiyor, o yüzden preview adresleri kalıpla kabul ediliyor.
+const IZINLI_KALIPLAR = [
+  /^https:\/\/butce-uygulamam[a-z0-9-]*\.vercel\.app$/,
+  /^http:\/\/localhost:\d+$/,
+  /^http:\/\/127\.0\.0\.1:\d+$/,
+];
+const EK_ORIGINLER = (process.env.IZINLI_ORIGINLER || "")
+  .split(",").map((o) => o.trim()).filter(Boolean);
+
+app.use(cors({
+  origin(origin, cb) {
+    // Origin başlığı olmayan istekler (curl, sağlık pingi) engellenmiyor;
+    // CORS zaten yalnızca tarayıcıyı kısıtlamak için var.
+    if (!origin) return cb(null, true);
+    const izinli = EK_ORIGINLER.includes(origin) ||
+                   IZINLI_KALIPLAR.some((k) => k.test(origin));
+    cb(null, izinli);
+  },
+}));
 app.use(express.json());
+
+// Giriş ucu parola denemelerine açık; kaba kuvvet saldırısını yavaşlatıyoruz.
+const girisLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 15,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { hata: "Çok fazla giriş denemesi. 15 dakika sonra tekrar deneyin." },
+});
+const kayitLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { hata: "Çok fazla kayıt denemesi. Bir saat sonra tekrar deneyin." },
+});
 
 // ==================== AUTH MIDDLEWARE ====================
 const authMiddleware = (req, res, next) => {
@@ -42,9 +93,18 @@ const authMiddleware = (req, res, next) => {
 };
 
 // ==================== AUTH ====================
-app.post("/api/kayit", async (req, res) => {
+// Uygulama internete açık olduğu için kayıt herkese serbest bırakılamaz.
+// KAYIT_KODU tanımlı değilse kayıt tamamen kapalı; tanımlıysa yalnızca
+// kodu bilenler hesap açabilir. Mevcut kullanıcıların girişi etkilenmez.
+app.post("/api/kayit", kayitLimiter, async (req, res) => {
   try {
-    const { isim, email, sifre } = req.body;
+    const { isim, email, sifre, kayitKodu } = req.body;
+    if (!process.env.KAYIT_KODU) {
+      return res.status(403).json({ hata: "Kayıt şu anda kapalı." });
+    }
+    if (kayitKodu !== process.env.KAYIT_KODU) {
+      return res.status(403).json({ hata: "Kayıt kodu geçersiz." });
+    }
     if (!isim || !email || !sifre) return res.status(400).json({ hata: "Tüm alanlar zorunlu" });
     const mevcut = toRow(await db.execute({ sql: "SELECT id FROM kullanicilar WHERE email = ?", args: [email] }));
     if (mevcut) return res.status(400).json({ hata: "Bu email zaten kayıtlı" });
@@ -56,9 +116,12 @@ app.post("/api/kayit", async (req, res) => {
   } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-app.post("/api/giris", async (req, res) => {
+app.post("/api/giris", girisLimiter, async (req, res) => {
   try {
     const { email, sifre } = req.body;
+    // Alanlar boşken libsql undefined argümanı reddediyor ve uç 500 dönüyordu;
+    // eksik girdi sunucu hatası değil, istemci hatasıdır.
+    if (!email || !sifre) return res.status(400).json({ hata: "Email ve şifre gerekli" });
     const kullanici = toRow(await db.execute({ sql: "SELECT * FROM kullanicilar WHERE email = ?", args: [email] }));
     if (!kullanici) return res.status(400).json({ hata: "Email veya şifre hatalı" });
     const dogru = await bcrypt.compare(sifre, kullanici.sifre);

@@ -31,7 +31,7 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   giris: (email, sifre) => api.post("/giris", { email, sifre }),
-  kayit: (isim, email, sifre) => api.post("/kayit", { isim, email, sifre }),
+  kayit: (isim, email, sifre, kayitKodu) => api.post("/kayit", { isim, email, sifre, kayitKodu }),
   beniGetir: () => api.get("/beni-getir"),
 };
 

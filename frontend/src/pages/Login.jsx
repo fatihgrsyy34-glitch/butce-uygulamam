@@ -3,7 +3,7 @@ import api from "../services/api";
 
 export default function Login({ onLogin }) {
   const [mod, setMod] = useState("giris"); // giris | kayit
-  const [form, setForm] = useState({ isim: "", email: "", sifre: "" });
+  const [form, setForm] = useState({ isim: "", email: "", sifre: "", kayitKodu: "" });
   const [hata, setHata] = useState("");
   const [yukleniyor, setYukleniyor] = useState(false);
 
@@ -14,7 +14,7 @@ export default function Login({ onLogin }) {
 
     try {
       if (mod === "kayit") {
-        if (!form.isim || !form.email || !form.sifre) {
+        if (!form.isim || !form.email || !form.sifre || !form.kayitKodu) {
           setHata("Tüm alanları doldurun");
           setYukleniyor(false);
           return;
@@ -45,18 +45,22 @@ export default function Login({ onLogin }) {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         background: "var(--bg-primary)",
+        // Sabit 400px kart 393px'lik telefonda taşıyor ve tarayıcı düzen
+        // alanını genişletiyordu; kenar boşluğu + esnek genişlikle çözülüyor.
+        padding: "max(16px, env(safe-area-inset-left)) 16px max(16px, env(safe-area-inset-bottom))",
       }}
     >
       <div
         className="card"
         style={{
-          width: "400px",
-          padding: "40px",
+          width: "100%",
+          maxWidth: "400px",
+          padding: "clamp(24px, 7vw, 40px)",
           textAlign: "center",
           boxShadow: "0 20px 40px rgba(0,0,0,0.05)"
         }}
@@ -128,6 +132,17 @@ export default function Login({ onLogin }) {
             onChange={(e) => setForm({ ...form, sifre: e.target.value })}
             className="input"
           />
+          {/* Uygulama internete açık: kayıt, sunucudaki KAYIT_KODU ile korunuyor */}
+          {mod === "kayit" && (
+            <input
+              type="text"
+              placeholder="Kayıt kodu"
+              value={form.kayitKodu}
+              onChange={(e) => setForm({ ...form, kayitKodu: e.target.value })}
+              className="input"
+              autoComplete="off"
+            />
+          )}
 
           {hata && (
             <div className="text-red text-sm mt-sm text-center">
