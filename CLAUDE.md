@@ -2,6 +2,20 @@
 
 Bütçem — kişisel finans takip uygulaması. React (Vite) frontend + Express backend, veritabanı **Turso** (uzak), yapay zeka için Google Gemini.
 
+## Yayın — uygulama zaten canlı
+
+Üç katman da bulutta, hepsi bedava katmanda. Yerel geliştirme bunun *yanında* çalışır, önkoşulu değil.
+
+| Katman | Adres | Nerede |
+|---|---|---|
+| Frontend | `https://butce-uygulamam.vercel.app` | Vercel, `main`'den otomatik deploy |
+| Backend | `https://butce-uygulamam-1.onrender.com` | Render, bedava katman |
+| Veritabanı | — | Turso (uzak) |
+
+**`VITE_API_URL` repoda tanımlı değil, Vercel panelinde duruyor.** Bu yüzden `services/api.js:3`'e bakınca `localhost:3001` görünür ama yayındaki paket Render adresine gider. Backend'in nerede olduğunu anlamak için derlenmiş pakete bakmak gerekir — repoda izi yoktur.
+
+**Render bedava katmanı 15 dk boşta kalırsa uyur, uyanması ~22 sn sürer.** `.github/workflows/keep-alive.yml` 10 dakikada bir `/api/health` ucunu çağırıp bunu engeller. O iş devre dışı kalırsa uygulama telefonda 20+ saniye açılmaz. Zamanlanmış GitHub işleri repo 60 gün hareketsiz kalırsa otomatik durur.
+
 ## Çalıştırma
 
 İki ayrı terminal gerekir. `npm start` script'i **yok**, aramayın.
@@ -24,6 +38,8 @@ Frontend backend'e `http://localhost:3001/api` adresinden gider (`frontend/src/s
 - Şema `database.js` içinde `CREATE TABLE IF NOT EXISTS` ile açılışta kurulur — ayrı migration adımı yok
 - `backend/migrate.js` tek seferlik bir taşıma script'idir (eski yerel `butce.db` → Turso). Normal geliştirmede **çalıştırmayın**
 - `better-sqlite3` bağımlılıklarda duruyor ama yalnızca `migrate.js` kullanıyor; yeni kodda kullanma
+- `better-sqlite3` yerel derleme araçları olmayan makinelerde (ör. WSL) `npm install` sırasında patlar. Backend'e paket eklemek için `npm install <paket> --ignore-scripts` kullan; Render'da tam kurulum sorunsuz geçiyor
+- Backend'i gerçek veriye dokunmadan denemek için tek kullanımlık yerel veritabanı: `TURSO_DATABASE_URL="file:/tmp/test.db" TURSO_AUTH_TOKEN="" node server.js`
 
 Sekiz tablo, hepsi Türkçe adlandırılmış: `kullanicilar`, `gelirler`, `harcamalar`, `kartlar`, `yatirimlar`, `hedefler`, `kurallar`, `ekstreler`. Alan adları da Türkçe (`miktar`, `tarih`, `kategori`, `kullanici_id`). Bu düzeni koru.
 
@@ -36,7 +52,9 @@ Sekiz tablo, hepsi Türkçe adlandırılmış: `kullanicilar`, `gelirler`, `harc
 | `TURSO_DATABASE_URL` | backend kalkmaz |
 | `TURSO_AUTH_TOKEN` | backend kalkmaz |
 | `GEMINI_API_KEY` | AI sohbet ve ekstre okuma çalışmaz |
-| `JWT_SECRET` | sabit varsayılana düşer (`server.js:13`) — üretimde **mutlaka** ver |
+| `JWT_SECRET` | her açılışta rastgele üretilir + uyarı loglanır; kimse token taklit edemez ama sunucu yeniden başladığında **herkes çıkış yapmış olur**. Kalıcı oturum için mutlaka ver |
+| `KAYIT_KODU` | **kayıt tamamen kapalı** (`/api/kayit` 403 döner). Yeni hesap açılmasına izin vermek için bir davet kodu ver; kayıt formu bu kodu ister |
+| `IZINLI_ORIGINLER` | yalnızca `*.vercel.app` (bu proje) ve `localhost` kabul edilir. Başka bir alan adı eklemek için virgülle ayır |
 | `COLLECT_API_KEY` | döviz/kur uçları çalışmaz |
 | `PORT` | 3001 kullanılır |
 
@@ -45,6 +63,25 @@ Sekiz tablo, hepsi Türkçe adlandırılmış: `kullanicilar`, `gelirler`, `harc
 Vanilla CSS design system — `frontend/src/index.css` ve `App.css`, CSS değişkenleriyle kurulmuş "Ink & Brass" teması.
 
 `tailwindcss` ve `@tailwindcss/vite` kurulu ve `vite.config.js`'e bağlı, **ama hiç kullanılmıyor** (kodda tek `@tailwind` direktifi veya utility sınıfı yok). Yeni kodda Tailwind sınıfı kullanma, mevcut CSS değişkenlerini kullan.
+
+### Mobil katman — tek kod tabanı, iki düzen
+
+`frontend/src/styles/mobile.css` telefon/tablet düzenini taşır. **Kırılma noktası 860px.**
+
+- **>860px:** masaüstü sidebar düzeni. `mobile.css` içindeki kuralların hepsi `@media (max-width: 860px)` içinde olduğu için masaüstü etkilenmez — bu bilinçli bir sınırdır, dışına kural yazma
+- **≤860px:** sidebar tamamen gizlenir; `components/MobileNav.jsx` üst marka çubuğu + alt sekme çubuğu + "Daha fazla" alt sayfasını render eder
+- Sidebar ve alt sekme çubuğu menü tanımlarını `utils/menu.jsx`'ten alır (`MENU_ITEMS`, `ICONS`). Sekme çubuğunda hangi sayfaların doğrudan görüneceğini `MOBIL_ANA_SEKMELER` belirler; listeye girmeyen sayfalar otomatik "Daha fazla" sayfasına düşer
+- Z-index düzeni: perde 300, alt sayfa 310, **sekme çubuğu 320** (alt sayfa açıkken kapatma düğmesi erişilebilir kalmalı)
+
+**Dikkat — dar ekranda taşan tek bir satır tüm gezinmeyi kilitler.** Tarayıcı ekrandan geniş içerik görünce düzen alanını genişletiyor (393px → 561px ölçüldü) ve `position: fixed` olan alt çubuk ekranın dışına kayıyor; hiçbir dokunma çalışmıyor. Bu yüzden `mobile.css` dar ekranda `.flex:not(.flex-col)` satırlarını sarmalıyor ve sabit `width` veren inline stillerden kaçınmak gerekiyor. Yeni sayfa eklerken 393px genişlikte taşma kontrolü yap.
+
+Diğer mobil kısıtlar: `input` yazı boyutu ≥16px olmalı (küçükse iOS sayfayı zorla büyütür), dokunma hedefleri ≥44px, güvenli alan boşlukları `env(safe-area-inset-*)` ile (`index.html`'de `viewport-fit=cover` şart).
+
+### PWA
+
+`vite-plugin-pwa` ile kurulu; iPhone'da *Paylaş → Ana Ekrana Ekle* ile tam ekran, Safari arayüzü olmadan açılır. Manifest `vite.config.js` içinde, ikonlar `frontend/public/` altında (`pwa-*`, `apple-touch-icon`, `favicon.svg`).
+
+**`/api/*` bilinçli olarak önbelleğe alınmıyor** (`navigateFallbackDenylist`): finans verisi her zaman canlı gelmeli ve kimliğe bağlı cevaplar diskte durmamalı. Yalnızca uygulama kabuğu ve fontlar precache ediliyor.
 
 ## Bloke eden komutlar — çalıştırma
 
@@ -73,8 +110,12 @@ frontend/src/
                  Grafikler, Hedefler, Yatirimlar, Dagilim, AiSohbet,
                  EkstreYukle, Login
   services/api.js   tüm HTTP çağrıları burada toplanmış — yeni uç eklerken buraya ekle
+  styles/mobile.css    ≤860px mobil düzen katmanı
   utils/categories.js  kategori tanımları ve renkleri
+  utils/menu.jsx       menü öğeleri + ikonlar (sidebar ve mobil nav ortak kaynağı)
+  components/MobileNav.jsx           mobil üst çubuk, alt sekmeler, "Daha fazla"
   components/ParticleBackground.jsx  (sadece AI sekmesinde)
+.github/workflows/keep-alive.yml   Render'ı uyanık tutan 10 dakikalık ping
 ```
 
 Kimlik doğrulama JWT + bcrypt. Her sorgu `kullanici_id` ile filtrelenir — yeni uç yazarken kullanıcı izolasyonunu **mutlaka** koru, aksi halde kullanıcılar birbirinin verisini görür.

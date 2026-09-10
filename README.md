@@ -4,6 +4,12 @@ Kişisel finans ve bütçe takip uygulaması. Gelir-gider takibi, kredi kartı y
 
 React (Vite) arayüz + Express API, veritabanı olarak Turso.
 
+**Canlı:** [butce-uygulamam.vercel.app](https://butce-uygulamam.vercel.app) · API: Render · Veritabanı: Turso
+
+### Telefona kurmak (iOS)
+
+Uygulama bir PWA — App Store gerekmez. iPhone'da Safari ile siteyi aç, **Paylaş → Ana Ekrana Ekle**. Sonrasında ana ekranda kendi ikonuyla, Safari arayüzü olmadan tam ekran açılır. Aynı hesap, aynı veri: telefonda girdiğin kayıt bilgisayarda da görünür.
+
 ## Özellikler
 
 - **Kimlik doğrulama** — JWT + bcrypt. Her kullanıcı yalnızca kendi verisini görür; tüm sorgular `kullanici_id` ile filtrelenir.
@@ -16,6 +22,7 @@ React (Vite) arayüz + Express API, veritabanı olarak Turso.
 - **Akıllı para dağılımı** — gelirin, tanımlanan kural profillerine göre (örn. %50 ihtiyaç / %30 istek / %20 birikim) otomatik dağıtılması.
 - **AI ekstre okuma** — PDF ekstre yüklenir, Gemini okuyup kategorize edilmiş harcamalara çevirir.
 - **AI sohbet** — kişisel bütçe üzerine soru-cevap.
+- **Mobil ve masaüstü tek arayüz** — 860px altında sidebar yerine alt sekme çubuğu devreye girer, 11 sayfanın tamamı telefondan erişilebilir. Masaüstü düzeni değişmez.
 
 ## Teknolojiler
 
@@ -41,10 +48,22 @@ TURSO_AUTH_TOKEN=...
 GEMINI_API_KEY=...
 JWT_SECRET=uzun-rastgele-bir-deger
 COLLECT_API_KEY=...
+# KAYIT_KODU=davet-kodu        # tanımlı değilse yeni kayıt kapalı
+# IZINLI_ORIGINLER=https://ornek.com
 # PORT=3001
 ```
 
-`TURSO_DATABASE_URL` ve `TURSO_AUTH_TOKEN` zorunludur — onlar olmadan backend başlamaz. `JWT_SECRET` verilmezse koddaki sabit varsayılana düşer, bu yüzden üretimde mutlaka tanımla. `GEMINI_API_KEY` yoksa yalnızca AI özellikleri devre dışı kalır, `COLLECT_API_KEY` yoksa kur/döviz uçları çalışmaz.
+`TURSO_DATABASE_URL` ve `TURSO_AUTH_TOKEN` zorunludur — onlar olmadan backend başlamaz.
+
+`JWT_SECRET` verilmezse her açılışta rastgele üretilir: kimse token taklit edemez, ama sunucu yeniden başladığında tüm oturumlar düşer. Oturumların kalıcı olması için tanımla.
+
+`KAYIT_KODU` tanımlı değilse `/api/kayit` kapalıdır ve kimse yeni hesap açamaz — uygulama internete açık olduğu için varsayılan bu. Kayıt almak istersen bir davet kodu ver; kayıt formu bu kodu ister.
+
+`IZINLI_ORIGINLER` ile CORS beyaz listesine ek alan adı eklenir; bu proje için `*.vercel.app` ve `localhost` zaten kabul edilir.
+
+`GEMINI_API_KEY` yoksa yalnızca AI özellikleri devre dışı kalır, `COLLECT_API_KEY` yoksa kur/döviz uçları çalışmaz.
+
+> `better-sqlite3` yerel derleme araçları olmayan makinelerde `npm install` sırasında hata verir. Backend'e paket eklerken `npm install <paket> --ignore-scripts` kullan.
 
 ### 2. Backend
 
@@ -91,9 +110,13 @@ frontend/src/
                  Grafikler, Hedefler, Yatirimlar, Dagilim, AiSohbet,
                  EkstreYukle, Login
   services/api.js       tüm HTTP çağrıları
+  styles/mobile.css     ≤860px mobil düzen katmanı
   utils/categories.js   kategori tanımları ve renkleri
-  components/           ParticleBackground (AI sekmesinde)
+  utils/menu.jsx        menü öğeleri + ikonlar (sidebar ve mobil nav ortak)
+  components/           MobileNav, ParticleBackground
   index.css, App.css    design system
+.github/workflows/
+  keep-alive.yml   Render'ı uyanık tutan 10 dakikalık /api/health pingi
 ```
 
 ### Veritabanı tabloları
@@ -103,6 +126,10 @@ frontend/src/
 ## Deploy
 
 Frontend Vercel üzerinde yayınlanır ve `main` branch'ine bağlıdır: `main`'e giden her push canlıya çıkar. Geliştirme için ayrı branch açıp push etmek Vercel'de preview deploy üretir.
+
+Backend Render'ın bedava katmanında çalışır. Bu katman 15 dakika boşta kalınca servisi uyutur ve uyanması ~22 saniye sürer; `.github/workflows/keep-alive.yml` 10 dakikada bir `/api/health` ucunu çağırarak bunu engeller. Ping başarısız olursa iş de başarısız olur, yani aynı zamanda bedava kesinti bildirimi sağlar.
+
+Frontend'in hangi API adresine gittiği `VITE_API_URL` ile belirlenir ve **bu değer repoda değil, Vercel panelinde tanımlıdır**.
 
 ## Katkı
 
