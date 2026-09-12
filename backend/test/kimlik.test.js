@@ -15,7 +15,9 @@ test.before(async () => {
   ana = await kullaniciOlustur(taban, "ana@test.com");
 });
 
-test.after(() => temizle(dizin));
+// before basarisiz olursa dizin undefined kalir; korumasiz temizlik
+// ERR_INVALID_ARG_TYPE atip asil baslatma hatasini gizler.
+test.after(() => dizin && temizle(dizin));
 
 test("dogru kodla kayit token ve id doner", () => {
   assert.ok(ana.token, "token donmeli");
@@ -32,7 +34,10 @@ test("KAYIT_KODU tanimsizken kayit tamamen kapali", async () => {
     });
     assert.strictEqual(durum, 403, "KAYIT_KODU yokken kayit 403 donmeli");
   } finally {
-    process.env.KAYIT_KODU = onceki;
+    // Duz atama, onceki undefined ise ortama "undefined" STRINGINI yazar
+    // ve sonraki testlerde gecerli bir davet kodu haline gelir.
+    if (onceki === undefined) delete process.env.KAYIT_KODU;
+    else process.env.KAYIT_KODU = onceki;
   }
 });
 

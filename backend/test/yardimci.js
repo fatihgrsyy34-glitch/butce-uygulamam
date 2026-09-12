@@ -15,15 +15,21 @@ const path = require("node:path");
 
 const KAYIT_KODU = "test-davet-kodu";
 
-function bosPort() {
+// Port'u yoklayip birakmak yaris yaratiyor: iki test dosyasi ayri
+// sureclerde ayni anda basliyor ve server.js portu ancak dbReady'den
+// sonra baglaniyor (sema kurulumu + bcrypt seed, yuzlerce ms). Bu arada
+// diger surec ayni portu kapabiliyor ve kaybeden EADDRINUSE ile cokuyor.
+// Cozum: yoklama soketini server.js baglanana kadar ACIK tut.
+function portuRezerveEt() {
   return new Promise((resolve, reject) => {
     const s = net.createServer();
     s.on("error", reject);
-    s.listen(0, "127.0.0.1", () => {
-      const { port } = s.address();
-      s.close(() => resolve(port));
-    });
+    s.listen(0, "127.0.0.1", () => resolve({ port: s.address().port, soket: s }));
   });
+}
+
+function soketiKapat(soket) {
+  return new Promise((resolve) => soket.close(resolve));
 }
 
 async function hazirBekle(taban, denemeSayisi = 100) {
@@ -41,21 +47,33 @@ async function hazirBekle(taban, denemeSayisi = 100) {
 
 async function sunucuyuBaslat() {
   const dizin = fs.mkdtempSync(path.join(os.tmpdir(), "butce-test-"));
-  const dbDosya = path.join(dizin, "test.db");
+  try {
+    const dbDosya = path.join(dizin, "test.db");
 
-  process.env.TURSO_DATABASE_URL = `file:${dbDosya}`;
-  process.env.TURSO_AUTH_TOKEN = "";
-  process.env.JWT_SECRET = "test-icin-sabit-secret";
-  process.env.KAYIT_KODU = KAYIT_KODU;
+    process.env.TURSO_DATABASE_URL = `file:${dbDosya}`;
+    process.env.TURSO_AUTH_TOKEN = "";
+    process.env.JWT_SECRET = "test-icin-sabit-secret";
+    process.env.KAYIT_KODU = KAYIT_KODU;
 
-  const port = await bosPort();
-  process.env.PORT = String(port);
+    const { port, soket } = await portuRezerveEt();
+    process.env.PORT = String(port);
 
-  require("../server.js");
+    // Sema kurulumu burada biter; portu ancak ondan sonra birakiyoruz.
+    const { dbReady } = require("../database");
+    await dbReady;
+    await soketiKapat(soket);
 
-  const taban = `http://127.0.0.1:${port}`;
-  await hazirBekle(taban);
-  return { taban, dbDosya, dizin };
+    require("../server.js");
+
+    const taban = `http://127.0.0.1:${port}`;
+    await hazirBekle(taban);
+    return { taban, dbDosya, dizin };
+  } catch (e) {
+    // Kendi cop dizinimizi biz toplayalim; yoksa /tmp'de birikir ve
+    // asil hata after-hook'taki temizlik hatasinin altinda kaybolur.
+    temizle(dizin);
+    throw e;
+  }
 }
 
 async function istek(taban, yol, { method = "GET", token, body } = {}) {
