@@ -100,7 +100,9 @@ Bu oturumların çoğu Telegram üzerinden, onay istemi olmadan çalışır. Kul
 - **Her cevabın sonunda ne değiştirdiğini özetle** — dosya adları ve commit varsa hash'i ile. Kullanıcı ekranı görmüyor.
 - Büyük veya geri alması zor bir şey (veri silme, şema değişikliği, deploy, `main`'e push, bağımlılık kaldırma) gerekiyorsa **yapma, sor.**
 - Emin olmadığın bir varsayımla ilerleme; tek cümlelik soru sor.
-- **Commit atmadan önce `npm test` çalıştır** (`backend` dizininde). Kimlik doğrulama, yetki veya para hesabı içeren değişikliklerde ayrıca `/code-review`, gerekiyorsa `/security-review`. Bulguları cevabında özetle. Bu komutlar CLI'a gömülüdür, kurulum gerekmez.
+- **Önemli değişikliklerden sonra `cd backend && npm test` çalıştır.** Her küçük düzeltmede gerekmez; şunlarda zorunlu: backend mantığı, kimlik doğrulama, yetki/sahiplik kontrolü, para hesabı, veritabanı şeması, yeni API ucu. Sonucu cevabında yaz (kaç test geçti). Yazım hatası, metin veya CSS değişikliğinde gerek yok.
+- Aynı kapsamdaki değişikliklerde `/code-review`, güvenliği ilgilendiriyorsa `/security-review` çalıştır. İkisi de CLI'a gömülüdür, kurulum gerekmez.
+- Kullanıcı "test yap" derse kastettiği budur: `cd backend && npm test`.
 - **Çok dosyaya yayılan arama gerekiyorsa Task aracıyla devret** ve yalnızca sonucu bağlama al. Dosya dökümleri ana oturuma girerse oturum şişer; bu proje bir kez 5 MB'a çıkıp tek mesajı $3.62'ye çıkarmıştı.
 
 Not: uygulamayı yalnızca sahibi kullanıyor. Yani "herkese açık servis" varsayımıyla kendi inisiyatifinle sertleştirme yapma — gerekiyorsa önce söyle.
