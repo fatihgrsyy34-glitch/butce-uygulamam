@@ -91,6 +91,30 @@ Diğer mobil kısıtlar: `input` yazı boyutu ≥16px olmalı (küçükse iOS sa
 - Değişikliği doğrulamak için sunucuya ihtiyaç varsa kullanıcıya söyle, o başlatsın
 - `npm install`, `npm run build`, `npm run lint`, `git` komutları biter — bunlar sorunsuz
 
+## Çalışma kuralları — kapsam ve haber verme
+
+Bu oturumların çoğu Telegram üzerinden, onay istemi olmadan çalışır. Kullanıcı ne yaptığını anlık göremez, bu yüzden kapsam disiplini kritiktir.
+
+- **Yalnızca isteneni yap.** Güvenlik sıkılaştırması, performans optimizasyonu, refactor, bağımlılık yükseltme, mimari değişiklik — bunları kendi başına başlatma. Gerekli görüyorsan **öner ve onay bekle.**
+- **İstenenin dışına çıktıysan cevabında açıkça söyle.** "Şunu istedin, şunu yaptım; ayrıca şuna da dokunmam gerekti çünkü…" Sessizce fazladan iş yapma.
+- **Her cevabın sonunda ne değiştirdiğini özetle** — dosya adları ve commit varsa hash'i ile. Kullanıcı ekranı görmüyor.
+- Büyük veya geri alması zor bir şey (veri silme, şema değişikliği, deploy, `main`'e push, bağımlılık kaldırma) gerekiyorsa **yapma, sor.**
+- Emin olmadığın bir varsayımla ilerleme; tek cümlelik soru sor.
+
+Not: uygulamayı yalnızca sahibi kullanıyor. Yani "herkese açık servis" varsayımıyla kendi inisiyatifinle sertleştirme yapma — gerekiyorsa önce söyle.
+
+### Bekleyen durum — önce bunu oku
+
+`main` yerelde `origin/main`'den **11 commit ileride ve hiçbiri push edilmedi.** Canlı site hâlâ eski kodu çalıştırıyor (`origin/main` = `151c438`).
+
+Push etmeden önce bilinmesi gerekenler:
+
+- **`KAYIT_KODU` tanımlı değilse kayıt tamamen kapanır** (`server.js:124`, `/api/kayit` 403 döner). Render ortam değişkenlerinde tanımlanmadan push edilirse kimse hesap açamaz.
+- CORS artık dar bir beyaz listeyle çalışıyor; canlı frontend adresi listede değilse uygulama backend'e ulaşamaz.
+- `/api/health` ve keep-alive workflow'u da bu push edilmemiş commit'lerde. Bu yüzden canlı backend şu an `/api/health` için 404 dönüyor ve soğuk başlangıcı ~22 saniye sürüyor.
+
+**Push kararını kullanıcı verir.** İstenirse ayrı bir branch'e push edilir (Vercel preview üretir), `main`'e değil.
+
 ## Git kuralları
 
 - Remote: `github.com/fatihgrsyy34-glitch/butce-uygulamam`
