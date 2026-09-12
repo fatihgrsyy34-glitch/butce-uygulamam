@@ -100,6 +100,8 @@ Bu oturumların çoğu Telegram üzerinden, onay istemi olmadan çalışır. Kul
 - **Her cevabın sonunda ne değiştirdiğini özetle** — dosya adları ve commit varsa hash'i ile. Kullanıcı ekranı görmüyor.
 - Büyük veya geri alması zor bir şey (veri silme, şema değişikliği, deploy, `main`'e push, bağımlılık kaldırma) gerekiyorsa **yapma, sor.**
 - Emin olmadığın bir varsayımla ilerleme; tek cümlelik soru sor.
+- **Commit atmadan önce `npm test` çalıştır** (`backend` dizininde). Kimlik doğrulama, yetki veya para hesabı içeren değişikliklerde ayrıca `/code-review`, gerekiyorsa `/security-review`. Bulguları cevabında özetle. Bu komutlar CLI'a gömülüdür, kurulum gerekmez.
+- **Çok dosyaya yayılan arama gerekiyorsa Task aracıyla devret** ve yalnızca sonucu bağlama al. Dosya dökümleri ana oturuma girerse oturum şişer; bu proje bir kez 5 MB'a çıkıp tek mesajı $3.62'ye çıkarmıştı.
 
 Not: uygulamayı yalnızca sahibi kullanıyor. Yani "herkese açık servis" varsayımıyla kendi inisiyatifinle sertleştirme yapma — gerekiyorsa önce söyle.
 
@@ -149,3 +151,17 @@ Kimlik doğrulama JWT + bcrypt. Her sorgu `kullanici_id` ile filtrelenir — yen
 - `README.md` uzun süre güncellenmedi; koda göre yeniden yazıldı. Yine de çelişki görürsen **koda güven**
 - Bu projede test altyapısı yok (`backend` test script'i hata döndürür). Değişikliği uygulamayı çalıştırıp doğrula
 - Lint: `cd frontend && npm run lint`
+
+## Testler
+
+`cd backend && npm test` — Node'un yerleşik test koşucusu (`node:test`), ek bağımlılık yok. 12 test, ~1 saniye.
+
+- `test/yardimci.js` — her koşuda geçici bir `file:` libsql veritabanı ve boş porta bağlanan sunucu kurar. **Gerçek Turso'ya hiç dokunmaz.** `dotenv` mevcut `process.env` değerlerini ezmediği için buradaki ayarlar `.env`'in önünde gelir
+- `test/kimlik.test.js` — kayıt kapısı (`KAYIT_KODU`), giriş, bozuk token, şifre sızıntısı
+- `test/izolasyon.test.js` — iki kullanıcı kurup birinin diğerinin gelir/harcama/kartına erişemediğini doğrular; `server.js:111`'deki kart sahiplik kontrolü de burada
+
+`--test-force-exit` bayrağı şart: `server.js` yüklendiği anda dinlemeye başlıyor ve sunucuyu dışarı vermiyor, bayraksız süreç hiç kapanmıyor.
+
+**Kayıt ucu saatte 5 istekle sınırlı** (`kayitLimiter`). Yeni test yazarken kullanıcıyı `test.before` içinde bir kez oluştur ve paylaş; her teste bir kayıt koyarsan sınır dolar ve testler yanıltıcı şekilde kırmızıya döner.
+
+Frontend testi yok.
