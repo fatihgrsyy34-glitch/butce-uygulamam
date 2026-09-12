@@ -105,7 +105,7 @@ Bu oturumların çoğu Telegram üzerinden, onay istemi olmadan çalışır. Kul
 - Kullanıcı "test yap" derse kastettiği budur: `cd backend && npm test`.
 - **Çok dosyaya yayılan arama gerekiyorsa Task aracıyla devret** ve yalnızca sonucu bağlama al. Dosya dökümleri ana oturuma girerse oturum şişer; bu proje bir kez 5 MB'a çıkıp tek mesajı $3.62'ye çıkarmıştı.
 
-Not: uygulamayı yalnızca sahibi kullanıyor. Yani "herkese açık servis" varsayımıyla kendi inisiyatifinle sertleştirme yapma — gerekiyorsa önce söyle.
+Not: uygulamayı şu an yalnızca sahibi kullanıyor, ama **ileride başka kullanıcılara açılabilir.** Bu yüzden mevcut güvenlik önlemlerini (CORS beyaz listesi, hız sınırları, `KAYIT_KODU` ile kapalı kayıt, `kullanici_id` izolasyonu) gevşetme. Yeni sertleştirme eklemek istiyorsan önce öner — kendi inisiyatifinle yapma.
 
 ### Bekleyen durum — önce bunu oku
 
@@ -167,3 +167,15 @@ Kimlik doğrulama JWT + bcrypt. Her sorgu `kullanici_id` ile filtrelenir — yen
 **Kayıt ucu saatte 5 istekle sınırlı** (`kayitLimiter`). Yeni test yazarken kullanıcıyı `test.before` içinde bir kez oluştur ve paylaş; her teste bir kayıt koyarsan sınır dolar ve testler yanıltıcı şekilde kırmızıya döner.
 
 Frontend testi yok.
+
+### pre-commit hook
+
+`.githooks/pre-commit` — staged dosyalar arasında `backend/` varsa testleri koşar, kırmızıysa commit'i engeller. `npm test` yerel bir Node süreci, **hiç token harcamaz**, ~1 saniye.
+
+`core.hooksPath` yerel bir git ayarıdır, klonla gelmez. Yeni makinede bir kez:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Gerçekten gerekiyorsa atlamak için `git commit --no-verify` — ama testi kırık bırakma.

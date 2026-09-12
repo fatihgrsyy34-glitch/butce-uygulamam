@@ -1,0 +1,36 @@
+#!/bin/sh
+# Backend degistiyse testleri kosar; kirmiziysa commit'i engeller.
+#
+# Neden: bu repoda commit'ler bazen Telegram uzerinden, onay istemi olmadan
+# atiliyor. CLAUDE.md'deki "test calistir" kurali iyi niyete bagli; bu hook
+# zorunlu kilar. npm test yerel bir Node sureci - hicbir token harcamaz,
+# ~1 saniye surer.
+#
+# Kurulum: git config core.hooksPath .githooks
+# Atlamak (gercekten gerekiyorsa): git commit --no-verify
+
+degisen=$(git diff --cached --name-only --diff-filter=ACM)
+
+case "$degisen" in
+  *backend/*) ;;
+  *) exit 0 ;;   # backend disi degisiklik: test gerekmez
+esac
+
+echo "pre-commit: backend degisti, testler kosuluyor..."
+
+cd "$(git rev-parse --show-toplevel)/backend" || exit 1
+
+if [ ! -d node_modules ]; then
+  echo "pre-commit: backend/node_modules yok, test atlandi (once npm install)."
+  exit 0
+fi
+
+if npm test --silent; then
+  echo "pre-commit: testler gecti."
+  exit 0
+fi
+
+echo ""
+echo "pre-commit: TESTLER KIRMIZI - commit durduruldu."
+echo "Duzelt ve tekrar dene. Gercekten gerekiyorsa: git commit --no-verify"
+exit 1
