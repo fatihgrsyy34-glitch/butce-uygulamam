@@ -270,6 +270,13 @@
   /* Grafik etiketleri telefonda okunabilir kalsın */
   .recharts-text { font-size: 11px !important; }
 
+  /* Dokunmatikte imleç yok; okuma satırı parmakla sürüklenerek kullanılıyor */
+  .grafik-alan { cursor: default; }
+
+  /* "dokunup kaydırın" ipucu dar ekranda tutarların satırını bozmasın */
+  .grafik-okuma-degerler { gap: var(--space-sm) var(--space-md); }
+  .grafik-okuma-deger strong { font-size: 16px; }
+
   /* Dokunmatikte :hover tetiklenip yapışıyor; yer değiştiren efektleri
      mobilde kapatıyoruz (renk/gölge geçişleri kalıyor). */
   .card:hover,

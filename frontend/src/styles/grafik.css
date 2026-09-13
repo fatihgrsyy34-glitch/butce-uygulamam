@@ -1,0 +1,207 @@
+/* ===========================================
+   Grafik katmanı — DokunmatikGrafik + KategoriHalka
+   ===========================================
+
+   Kurallar medya sorgusuz yazıldı: kaplar flex-wrap + min-width:0 ile
+   kendiliğinden daralıyor. Böylece mobile.css'e kopya kural girmiyor ve
+   dar ekranda satır taşması (alt sekme çubuğunu kilitleyen hata)
+   oluşmuyor. */
+
+.grafik-baslik {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.input-ay {
+  width: auto;
+  min-width: 0;
+  padding: 6px 12px;
+}
+
+/* ——— Okuma satırı ——— */
+/* Parmak grafiğin üzerindeyken canlı güncellenen değer. Grafiğin ÜSTÜNDE
+   duruyor: tooltip kutusu mobilde parmağın altında kalıp okunmuyordu. */
+.grafik-okuma {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-sm);
+  min-height: 46px;
+}
+
+.grafik-okuma-donem {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.grafik-okuma-ipucu {
+  font-style: normal;
+  color: var(--text-faint);
+  margin-left: 6px;
+}
+
+.grafik-okuma-degerler {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.grafik-okuma-deger {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.grafik-okuma-deger i {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex: none;
+  align-self: center;
+}
+
+.grafik-okuma-ad {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.grafik-okuma-deger strong {
+  font-size: 17px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;   /* rakam değişince satır zıplamasın */
+}
+
+/* ——— Çizim alanı ——— */
+/* pan-y: dikey kaydırma tarayıcıda kalsın (sayfa grafiğin üstünde
+   takılmasın), yatay hareketi biz okuyalım. */
+.grafik-alan {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: crosshair;
+}
+
+.grafik-dipnot {
+  margin: var(--space-sm) 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* ——— Kategori halkası ——— */
+.halka-sarmal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.halka-grafik {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+/* Ortadaki okuma dilimlere dokunmayı engellememeli */
+.halka-orta {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+  text-align: center;
+  padding: 0 var(--space-lg);
+}
+
+.halka-orta-ad {
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.halka-orta-tutar {
+  font-size: 20px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.halka-orta-yuzde {
+  font-size: 12px;
+  color: var(--accent-primary);
+}
+
+.halka-liste {
+  flex: 1 1 240px;
+  min-width: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.halka-satir {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+  min-height: 44px;          /* dokunma hedefi */
+}
+
+.halka-satir.aktif {
+  background: var(--accent-soft);
+  border-color: var(--accent-primary);
+}
+
+.halka-nokta {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex: none;
+}
+
+.halka-ad {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.halka-oran {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.halka-tutar {
+  flex: none;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dağılım sayfasındaki halka — sabit width={300} kaldırıldı */
+.dagilim-halka {
+  flex: 1 1 260px;
+  min-width: 0;
+}

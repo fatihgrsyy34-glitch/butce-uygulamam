@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { kuralAPI, dagilimAPI, gelirAPI } from "../services/api";
 
 const RENKLER = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
@@ -141,15 +141,21 @@ function Dagilim() {
           ))}
         </div>
       </div>
-      <PieChart width={300} height={300}>
-        <Pie data={dagilim.filter(d => d.miktar > 0)} dataKey="miktar" nameKey="kategori" cx="50%" cy="50%" innerRadius={70} outerRadius={110} stroke="none">
-          {dagilim.filter(d => d.miktar > 0).map((_, i) => (
-            <Cell key={i} fill={RENKLER[i % RENKLER.length]} />
-          ))}
-        </Pie>
-        <Tooltip formatter={(val) => `₺${val.toLocaleString("tr-TR")}`} cursor={{fill: 'transparent'}} />
-        <Legend iconType="circle" />
-      </PieChart>
+      {/* Sabit width={300} yerine kapsayıcıya uyuyor: dar telefonda taşan
+          bir satır tüm gezinmeyi kilitliyordu */}
+      <div className="dagilim-halka">
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart>
+            <Pie data={dagilim.filter(d => d.miktar > 0)} dataKey="miktar" nameKey="kategori" cx="50%" cy="50%" innerRadius="58%" outerRadius="88%" stroke="none">
+              {dagilim.filter(d => d.miktar > 0).map((_, i) => (
+                <Cell key={i} fill={RENKLER[i % RENKLER.length]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(val) => `₺${val.toLocaleString("tr-TR")}`} cursor={{fill: 'transparent'}} />
+            <Legend iconType="circle" />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 
