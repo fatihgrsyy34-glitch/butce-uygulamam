@@ -9,6 +9,7 @@ const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { db, dbReady } = require("./database");
+const { modelIleDene, kullaniciMesaji, durumKodu } = require("./gemini");
 
 // Yüklenen dosya belleğe okunup base64'e çevriliyor (1.33x şişer) ve Render
 // bedava katmanında 512MB RAM var — sınırsız yükleme sunucuyu düşürebilir.
@@ -444,14 +445,20 @@ app.post("/api/ekstre-yukle", authMiddleware, upload.single("pdf"), async (req, 
     return res.status(403).json({ hata: "Bu kart size ait değil" });
   }
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const pdfData = fs.readFileSync(pdfPath);
     const base64Pdf = pdfData.toString("base64");
     const prompt = `Bu bir Türk bankasına ait kredi kartı ekstresidir. Harcamaları aşağıdaki JSON formatında çıkar:
 {"harcamalar": [{"tarih": "YYYY-MM-DD", "aciklama": "işlem açıklaması", "miktar": 0, "kategori": "kategori"}]}
 Kategori seçenekleri: Market, Yemek & Restoran, Ulaşım, Giyim, Sağlık, Eğlence, Faturalar, Eğitim, Diğer
 Sadece JSON döndür, başka hiçbir şey yazma.`;
-    const result = await model.generateContent([{ inlineData: { mimeType: "application/pdf", data: base64Pdf } }, prompt]);
+    // Yoğunluk kaynaklı 503'lerde kendi kendine yeniden dener (bkz. gemini.js).
+    // Süre bütçesi 75 sn: arayüzün yükleme zaman aşımı 120 sn.
+    const result = await modelIleDene(
+      (modelAdi) => genAI.getGenerativeModel({ model: modelAdi }).generateContent(
+        [{ inlineData: { mimeType: "application/pdf", data: base64Pdf } }, prompt]
+      ),
+      { sureButcesi: 75000, uyari: (m) => console.warn("[ekstre]", m) }
+    );
     const responseText = result.response.text();
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("AI yanıtından JSON çıkarılamadı");
@@ -501,7 +508,8 @@ Sadece JSON döndür, başka hiçbir şey yazma.`;
     res.json({ mesaj: `${harcamalar.length} harcama içe aktarıldı`, harcamalar, ekstre_id: ekstreId });
   } catch (err) {
     if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
-    res.status(500).json({ hata: "PDF analizi başarısız: " + err.message });
+    console.error("[ekstre] analiz başarısız:", err.message);
+    res.status(durumKodu(err)).json({ hata: kullaniciMesaji(err, "PDF analizi") });
   }
 });
 
@@ -564,14 +572,20 @@ HARCAMALAR (tüm aylar, kategori bazlı):
 ${harcamaSonAylar.map(h => `${h.ay} - ${h.kategori}: ₺${h.toplam}`).join("\n")}
 
 Kullanıcı hangi ayı sorarsa o aya ait verileri kullan. Türkçe, samimi ve pratik tavsiyeler ver.`;
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", systemInstruction: sistem });
-    const chat = model.startChat({
-      history: (gecmis || []).slice(-10).map(m => ({ role: m.rol === "user" ? "user" : "model", parts: [{ text: m.icerik }] }))
-    });
-    const aiResult = await chat.sendMessage(soru);
+    const history = (gecmis || []).slice(-10).map(m => ({ role: m.rol === "user" ? "user" : "model", parts: [{ text: m.icerik }] }));
+    // Sohbette süre bütçesi dar: arayüzün varsayılan zaman aşımı 30 sn.
+    const aiResult = await modelIleDene(
+      (modelAdi) => genAI
+        .getGenerativeModel({ model: modelAdi, systemInstruction: sistem })
+        .startChat({ history })
+        .sendMessage(soru),
+      { sureButcesi: 20000, ilkBekleme: 700, modelBasinaDeneme: 2,
+        uyari: (m) => console.warn("[ai-sohbet]", m) }
+    );
     res.json({ cevap: aiResult.response.text() });
   } catch (err) {
-    res.status(500).json({ hata: "AI yanıt üretemedi: " + err.message });
+    console.error("[ai-sohbet] yanıt üretilemedi:", err.message);
+    res.status(durumKodu(err)).json({ hata: kullaniciMesaji(err, "AI yanıtı") });
   }
 });
 
